@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shark Bot Pro | Automated Binance Spot & TradingView Engine</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- TradingView Advanced Charting Library -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
+</head>
+<body>
+    <div class="saas-container">
+        
+        <!-- ==================== SIDEBAR NAVIGATION ==================== -->
+        <aside class="sidebar">
+            <!-- Brand / Logo Header -->
+            <div class="sidebar-brand">
+                <div class="brand-mascot-box">
+                    <img src="/static/img/shark_mascot.jpg" alt="Shark Bot Pro" class="mascot-img">
+                </div>
+                <div class="brand-text">
+                    <div class="title-row">
+                        <span class="brand-name">SHARK BOT</span>
+                        <span class="pro-badge">PRO</span>
+                    </div>
+                    <span class="brand-subtitle" data-i18n="market_predator">Market Predator</span>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="sidebar-nav">
+                <!-- Section: MAIN -->
+                <div class="nav-section-title" data-i18n="nav_section_main">MAIN</div>
+                <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+                    <i class="fa-solid fa-table-cells-large"></i>
+                    <span data-i18n="nav_dashboard">Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="exchanges" onclick="switchView('exchanges')">
+                    <i class="fa-solid fa-right-left"></i>
+                    <span data-i18n="nav_exchanges">My Exchanges</span>
+                </button>
+                <button class="nav-item" data-view="positions" onclick="switchView('positions')">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple"></i>
+                    <span data-i18n="nav_positions">Positions</span>
+                    <span class="badge-dot-pink"></span>
+                </button>
+
+                <!-- Section: TRADING BOTS -->
+                <div class="nav-section-title" data-i18n="nav_section_bots">TRADING BOTS</div>
+                <button class="nav-item" data-view="signal-bot" onclick="switchView('signal-bot')">
+                    <i class="fa-solid fa-robot text-cyan"></i>
+                    <span data-i18n="nav_signal_bot">Signal Bot (Webhook)</span>
+                    <span class="badge-dot-pink"></span>
+                </button>
+
+                <!-- Section: MANUAL TRADING -->
+                <div class="nav-section-title" data-i18n="nav_section_manual">MANUAL TRADING</div>
+                <button class="nav-item" data-view="terminal" onclick="switchView('terminal')">
+                    <i class="fa-solid fa-terminal text-emerald"></i>
+                    <span data-i18n="nav_terminal">Live Terminal</span>
+                    <span class="pulse-dot-inline" id="sidebarTerminalPulse"></span>
+                </button>
+
+                <!-- Section: SYSTEM -->
+                <div class="nav-section-title" data-i18n="nav_section_other">SYSTEM</div>
+                <button class="nav-item" data-view="guide" onclick="switchView('guide')">
+                    <i class="fa-solid fa-book-bookmark text-orange"></i>
+                    <span data-i18n="nav_guide">Beginner Guide</span>
+                </button>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <div class="lang-switch-box">
+                    <span class="lang-label" data-i18n="language_label">Language:</span>
+                    <div class="lang-toggle-pills">
+                        <button id="langEnBtn" class="lang-pill active" onclick="setLanguage('en')">EN</button>
+                        <button id="langArBtn" class="lang-pill" onclick="setLanguage('ar')">عربي</button>
+                    </div>
+                </div>
+
+                <div class="status-summary">
+                    <div id="sideStatusDot" class="mini-status-dot offline"></div>
+                    <span id="sideStatusText" data-i18n="binance_offline">Binance: Offline</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ==================== MAIN CONTENT AREA ==================== -->
+        <div class="content-wrapper">
+            
+            <!-- Topbar Header -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle-btn" onclick="toggleSidebar()">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="page-title-group">
+                        <h2 id="currentPageTitle" data-i18n="nav_dashboard">Dashboard</h2>
+                        <span id="currentPageSubtitle" class="page-subtitle" data-i18n="dashboard_subtitle">Overview & Real-Time Performance</span>
+                    </div>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Available Balance Chip -->
+                    <div class="balance-chip" onclick="manualRefreshBalances()" title="Click to refresh balance">
+                        <div class="chip-icon"><i class="fa-solid fa-wallet text-emerald"></i></div>
+                        <div class="chip-info">
+                            <span class="chip-label" data-i18n="available_usdt">Available USDT</span>
+                            <span class="chip-value" id="topUsdtBalance">0.00 <span class="unit">USDT</span></span>
+                        </div>
+                        <button class="chip-refresh-btn" id="refreshBalanceBtn">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                    </div>
+
+                    <!-- Mode Badge (Live vs Testnet) -->
+                    <div id="modeBadge" class="status-badge badge-warning">
+                        <i class="fa-solid fa-flask"></i>
+                        <span id="modeText" data-i18n="mode_testnet">Testnet</span>
+                    </div>
+
+                    <!-- Bot Master Toggle -->
+                    <button id="toggleBotBtn" class="btn btn-sm btn-success">
+                        <i class="fa-solid fa-power-off"></i>
+                        <span id="botBtnText" data-i18n="bot_running">Bot: Active</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable View Body -->
+            <main class="views-container">
+                
+                <!-- ==================== VIEW 1: DASHBOARD ==================== -->
+                <section id="view-dashboard" class="content-view active">
+                    <!-- Predator Hero Banner -->
+                    <div class="hero-banner">
+                        <div class="hero-content">
+                            <div class="hero-tag">
+                                <span class="pulse-dot-inline"></span>
+                                <span data-i18n="hero_status_tag">PREDATOR EXECUTION ENGINE ACTIVE</span>
+                            </div>
+                            <h1 data-i18n="hero_title">Rule The Markets with Shark Bot Pro</h1>
+                            <p data-i18n="hero_desc">Lightning-fast Binance Spot execution driven by TradingView alerts. Designed with intuitive simplicity so beginners can start in minutes, backed by institutional speed.</p>
+                            <div class="hero-actions">
+                                <button class="btn btn-primary" onclick="switchView('signal-bot')">
+                                    <i class="fa-solid fa-robot"></i> <span data-i18n="btn_configure_bot">Configure Signal Bot</span>
+                                </button>
+                                <button class="btn btn-outline" onclick="switchView('terminal')">
+                                    <i class="fa-solid fa-terminal"></i> <span data-i18n="btn_view_terminal">Open Live Terminal</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="hero-mascot-visual">
+                            <img src="/static/img/shark_mascot.jpg" alt="Shark Predator" class="hero-mascot-img">
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats Grid -->
+                    <div class="stats-bar">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-emerald-dim"><i class="fa-solid fa-wallet text-emerald"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="available_usdt">Available USDT</span>
+                                <span class="stat-value text-emerald" id="usdtBalance">0.00 <span class="unit">USDT</span></span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-blue-dim"><i class="fa-solid fa-pie-chart text-blue"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="capital_allocation">Capital Allocation</span>
+                                <span class="stat-value" id="capitalPercentDisplay">100%</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-purple-dim"><i class="fa-solid fa-shield-halved text-purple"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="order_protection">Order Protection</span>
+                                <span class="stat-value text-purple">Binance Spot OCO</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-orange-dim"><i class="fa-solid fa-satellite-dish text-orange"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="webhook_endpoint">Webhook Endpoint</span>
+                                <button class="btn btn-xs btn-outline copy-btn" onclick="copyWebhookUrl()">
+                                    <i class="fa-solid fa-copy"></i> <span data-i18n="copy_url">Copy Webhook URL</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Beginner 3-Step Flow Card ("السهل الممتنع") -->
+                    <div class="card onboarding-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-compass text-cyan"></i> <span data-i18n="how_it_works_title">How It Works in 3 Simple Steps</span></h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="steps-grid">
+                                <div class="step-item" onclick="switchView('exchanges')">
+                                    <div class="step-number">1</div>
+                                    <div class="step-info">
+                                        <h4 data-i18n="step_1_title">Connect Binance</h4>
+                                        <p data-i18n="step_1_desc">Add your Binance API Key & Secret (Testnet or Live) in the Exchanges tab.</p>
+                                    </div>
+                                    <i class="fa-solid fa-arrow-right step-arrow"></i>
+                                </div>
+                                <div class="step-item" onclick="switchView('signal-bot')">
+                                    <div class="step-number">2</div>
+                                    <div class="step-info">
+                                        <h4 data-i18n="step_2_title">Setup Signal Bot</h4>
+                                        <p data-i18n="step_2_desc">Set your Capital % (e.g. 100%) and TP/SL goals, then copy your Alert JSON.</p>
+                                    </div>
+                                    <i class="fa-solid fa-arrow-right step-arrow"></i>
+                                </div>
+                                <div class="step-item" onclick="switchView('terminal')">
+                                    <div class="step-number">3</div>
+                                    <div class="step-info">
+                                        <h4 data-i18n="step_3_title">Automate Trading</h4>
+                                        <p data-i18n="step_3_desc">Paste into TradingView. Shark Bot executes trades and locks TP/SL instantly.</p>
+                                    </div>
+                                    <i class="fa-solid fa-check step-arrow text-emerald"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 2: SIGNAL BOT (TRADINGVIEW WEBHOOK) ==================== -->
+                <section id="view-signal-bot" class="content-view">
+                    
+                    <!-- Webhook & Capital Top Grid -->
+                    <div class="grid-two-columns">
+                        
+                        <!-- Card 1: Webhook Credentials & Endpoint -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2><i class="fa-solid fa-satellite-dish text-orange"></i> <span data-i18n="webhook_setup_title">Webhook Connection & Endpoint</span></h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label data-i18n="webhook_url_label">Webhook URL (Paste in TradingView):</label>
+                                    <div class="input-with-button">
+                                        <input type="text" id="webhookDisplayUrl" readonly class="input-field ltr text-cyan" value="http://localhost:8000/api/webhook">
+                                        <button class="btn btn-sm btn-outline" onclick="copyWebhookUrl()" title="Copy Webhook URL">
+                                            <i class="fa-solid fa-copy"></i> <span data-i18n="copy_btn">Copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="webhookSecret" data-i18n="secret_label">Webhook Security Passphrase (Secret):</label>
+                                    <div class="input-with-button">
+                                        <input type="text" id="webhookSecret" value="secure_trading_pass_2026" class="input-field ltr">
+                                        <button class="btn btn-sm btn-outline" onclick="generateNewSecret()" title="Generate New Key">
+                                            <i class="fa-solid fa-rotate"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="tip-box">
+                                    <i class="fa-solid fa-shield-halved text-cyan"></i>
+                                    <span data-i18n="webhook_security_tip">This passphrase protects your bot. Any alert without this exact passphrase will be rejected immediately.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Capital Allocation & Profit/Loss Configuration -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2><i class="fa-solid fa-sliders text-emerald"></i> <span data-i18n="card_trading_title">Capital Allocation & Risk Settings</span></h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="capitalSlider">
+                                        <span data-i18n="capital_slider_label">Purchase Capital Percentage:</span>
+                                        <strong id="sliderValue" class="text-cyan">100%</strong>
+                                    </label>
+                                    <input type="range" id="capitalSlider" min="5" max="100" step="5" value="100" class="range-slider">
+                                    
+                                    <!-- Quick Preset Buttons -->
+                                    <div class="preset-buttons-row">
+                                        <button type="button" class="preset-btn" onclick="setCapitalPreset(25)">25%</button>
+                                        <button type="button" class="preset-btn" onclick="setCapitalPreset(50)">50%</button>
+                                        <button type="button" class="preset-btn" onclick="setCapitalPreset(75)">75%</button>
+                                        <button type="button" class="preset-btn active" onclick="setCapitalPreset(100)" data-i18n="preset_100">100% (Full)</button>
+                                    </div>
+                                </div>
+
+                                <!-- Dynamic Balance Calculation Box -->
+                                <div class="capital-preview-box">
+                                    <div class="calc-row">
+                                        <span class="calc-label" data-i18n="calc_available">Available USDT:</span>
+                                        <span class="calc-val text-emerald" id="calcAvailableUsdt">0.00 USDT</span>
+                                    </div>
+                                    <div class="calc-row">
+                                        <span class="calc-label" data-i18n="calc_per_trade">Estimated Trade Allocation:</span>
+                                        <span class="calc-val text-cyan font-bold" id="calcEstimatedTrade">0.00 USDT</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="defaultTp" data-i18n="default_tp_label">Take Profit Target (TP %)</label>
+                                        <input type="number" id="defaultTp" step="0.1" value="2.5" class="input-field">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="defaultSl" data-i18n="default_sl_label">Stop Loss Target (SL %)</label>
+                                        <input type="number" id="defaultSl" step="0.1" value="1.2" class="input-field">
+                                    </div>
+                                </div>
+
+                                <button id="saveTradingSettingsBtn" class="btn btn-primary btn-block">
+                                    <i class="fa-solid fa-floppy-disk"></i> <span data-i18n="save_settings_btn">Save Trading Settings</span>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- DUAL SIGNAL SETUP: BUY & SELL CARDS -->
+                    <div class="grid-two-columns mt-20">
+                        
+                        <!-- BUY Signal Card -->
+                        <div class="card signal-box-card buy-card">
+                            <div class="card-header flex-between">
+                                <h2>
+                                    <i class="fa-solid fa-arrow-trend-up text-emerald"></i> 
+                                    <span data-i18n="buy_signal_title">1. BUY Signal Setup (Entry)</span>
+                                </h2>
+                                <span class="badge-pill bg-emerald-dim text-emerald" data-i18n="action_buy">MARKET BUY</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="signal-desc" data-i18n="buy_signal_desc">
+                                    When your indicator triggers BUY, Shark Bot executes a Market Buy using your allocated capital % and instantly places Take Profit & Stop Loss (OCO) orders on Binance.
+                                </p>
+
+                                <label data-i18n="buy_payload_label">TradingView Alert Message (BUY):</label>
+                                <div class="code-box-container">
+                                    <pre id="tvBuyPayloadCode" class="code-box ltr">{
+  "secret": "secure_trading_pass_2026",
+  "action": "BUY",
+  "symbol": "{{ticker}}",
+  "tp_percent": 2.5,
+  "sl_percent": 1.2,
+  "capital_percent": 100
+}</pre>
+                                </div>
+
+                                <div class="signal-card-actions">
+                                    <button class="btn btn-sm btn-success flex-1" onclick="copyBuyPayload()">
+                                        <i class="fa-solid fa-copy"></i> <span data-i18n="copy_buy_btn">Copy BUY JSON</span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline" onclick="sendSimulatedSignal('BUY')" title="Send simulated BUY">
+                                        <i class="fa-solid fa-bolt"></i> <span data-i18n="test_buy_btn">Test BUY</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SELL Signal Card -->
+                        <div class="card signal-box-card sell-card">
+                            <div class="card-header flex-between">
+                                <h2>
+                                    <i class="fa-solid fa-arrow-trend-down text-danger"></i> 
+                                    <span data-i18n="sell_signal_title">2. SELL Signal Setup (Exit)</span>
+                                </h2>
+                                <span class="badge-pill bg-danger-dim text-danger" data-i18n="action_sell">MARKET SELL</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="signal-desc" data-i18n="sell_signal_desc">
+                                    When your indicator triggers SELL/CLOSE, Shark Bot cancels pending OCO orders and executes a Market Sell for 100% of the coin, returning capital to USDT immediately.
+                                </p>
+
+                                <label data-i18n="sell_payload_label">TradingView Alert Message (SELL):</label>
+                                <div class="code-box-container">
+                                    <pre id="tvSellPayloadCode" class="code-box ltr">{
+  "secret": "secure_trading_pass_2026",
+  "action": "SELL",
+  "symbol": "{{ticker}}"
+}</pre>
+                                </div>
+
+                                <div class="signal-card-actions">
+                                    <button class="btn btn-sm btn-danger flex-1" onclick="copySellPayload()">
+                                        <i class="fa-solid fa-copy"></i> <span data-i18n="copy_sell_btn">Copy SELL JSON</span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline" onclick="sendSimulatedSignal('SELL')" title="Send simulated SELL">
+                                        <i class="fa-solid fa-bolt"></i> <span data-i18n="test_sell_btn">Test SELL</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- PINE SCRIPT v5 CODE TEMPLATE -->
+                    <div class="card mt-20">
+                        <div class="card-header flex-between">
+                            <h2>
+                                <i class="fa-solid fa-code text-cyan"></i> 
+                                <span data-i18n="pinescript_title">Ready-to-Use Pine Script v5 Code (TradingView Indicator)</span>
+                            </h2>
+                            <button class="btn btn-xs btn-outline" onclick="copyPineScriptCode()">
+                                <i class="fa-solid fa-copy"></i> <span data-i18n="copy_code_btn">Copy Full Pine Script</span>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="signal-desc" data-i18n="pinescript_desc">
+                                Paste this code directly into the <strong>Pine Editor</strong> at the bottom of TradingView. It automatically configures buy/sell conditions and sends alerts to your Shark Bot Webhook!
+                            </p>
+                            <div class="code-box-container">
+                                <pre id="pineScriptCodeBox" class="code-box ltr">// © Shark Bot Pro - Automated Binance Spot Strategy Template
+//@version=5
+indicator("Shark Bot Pro - Strategy Indicator", overlay=true)
+
+// 1. Indicator Parameters (e.g. Fast & Slow EMAs)
+fastLength = input.int(9, title="Fast EMA Length")
+slowLength = input.int(21, title="Slow EMA Length")
+tpPercent  = input.float(2.5, title="Take Profit %")
+slPercent  = input.float(1.2, title="Stop Loss %")
+capitalPct = input.int(100, title="Capital % Allocation")
+secretKey  = input.string("secure_trading_pass_2026", title="Webhook Secret")
+
+// 2. Calculation
+fastEMA = ta.ema(close, fastLength)
+slowEMA = ta.ema(close, slowLength)
+
+plot(fastEMA, color=color.cyan, title="Fast EMA")
+plot(slowEMA, color=color.orange, title="Slow EMA")
+
+// 3. Buy and Sell Conditions
+buyCondition  = ta.crossover(fastEMA, slowEMA)
+sellCondition = ta.crossunder(fastEMA, slowEMA)
+
+plotshape(buyCondition, title="Buy Signal", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, text="BUY")
+plotshape(sellCondition, title="Sell Signal", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, text="SELL")
+
+// 4. Send Webhook Alerts to Shark Bot Pro
+if (buyCondition)
+    alert('{"secret": "' + secretKey + '", "action": "BUY", "symbol": "' + syminfo.ticker + '", "tp_percent": ' + str.tostring(tpPercent) + ', "sl_percent": ' + str.tostring(slPercent) + ', "capital_percent": ' + str.tostring(capitalPct) + '}', alert.freq_once_per_bar_close)
+
+if (sellCondition)
+    alert('{"secret": "' + secretKey + '", "action": "SELL", "symbol": "' + syminfo.ticker + '"}', alert.freq_once_per_bar_close)</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ==================== VIEW 3: MY EXCHANGES ==================== -->
+                <section id="view-exchanges" class="content-view">
+                    <div class="card exchange-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-key text-blue"></i> <span data-i18n="card_binance_title">Binance API Connection</span></h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="exchange-status-banner">
+                                <div class="exchange-brand">
+                                    <i class="fa-brands fa-bitcoin text-orange" style="font-size: 32px;"></i>
+                                    <div>
+                                        <h3>Binance Spot API</h3>
+                                        <p class="text-muted" data-i18n="binance_desc">Official REST & WebSocket integration</p>
+                                    </div>
+                                </div>
+                                <div id="exchangeStatusPill" class="status-badge badge-offline">
+                                    <span class="dot"></span>
+                                    <span id="exchangeStatusPillText" data-i18n="binance_offline">Binance: Offline</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="binanceApiKey" data-i18n="api_key_label">Binance API Key</label>
+                                <input type="password" id="binanceApiKey" placeholder="Enter API Key..." class="input-field ltr">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="binanceApiSecret" data-i18n="api_secret_label">Binance API Secret</label>
+                                <input type="password" id="binanceApiSecret" placeholder="Enter API Secret..." class="input-field ltr">
+                            </div>
+
+                            <div class="form-group toggle-group">
+                                <label class="switch-container">
+                                    <input type="checkbox" id="testnetToggle" checked>
+                                    <span class="slider-toggle"></span>
+                                </label>
+                                <span class="toggle-label" data-i18n="testnet_toggle_label">Enable Testnet (Uncheck for Real Live Trading)</span>
+                            </div>
+
+                            <button id="saveApiKeysBtn" class="btn btn-outline btn-block">
+                                <i class="fa-solid fa-link"></i> <span data-i18n="save_connect_btn">Save & Verify Connection</span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 4: POSITIONS & WALLET ==================== -->
+                <section id="view-positions" class="content-view">
+                    <div class="card">
+                        <div class="card-header flex-between">
+                            <h2><i class="fa-solid fa-coins text-purple"></i> <span data-i18n="portfolio_title">Live Wallet Balances & Open Orders</span></h2>
+                            <button class="btn btn-xs btn-outline" onclick="manualRefreshBalances()">
+                                <i class="fa-solid fa-rotate-right"></i> <span data-i18n="refresh_btn">Refresh Now</span>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="tables-grid">
+                                <!-- Wallet Balances Table -->
+                                <div class="sub-table-wrapper">
+                                    <h3><i class="fa-solid fa-wallet text-cyan"></i> <span data-i18n="assets_title">Wallet Assets</span></h3>
+                                    <div class="table-scroll">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th data-i18n="th_asset">Asset</th>
+                                                    <th data-i18n="th_free">Free</th>
+                                                    <th data-i18n="th_locked">Locked</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="balancesTableBody">
+                                                <tr><td colspan="3" class="text-center text-muted" data-i18n="no_assets">No assets or account not connected</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Open Orders (OCO / Limit) -->
+                                <div class="sub-table-wrapper">
+                                    <h3><i class="fa-solid fa-clock-rotate-left text-emerald"></i> <span data-i18n="open_orders_title">Open Orders (OCO / Limit)</span></h3>
+                                    <div class="table-scroll">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th data-i18n="th_symbol">Symbol</th>
+                                                    <th data-i18n="th_side">Side</th>
+                                                    <th data-i18n="th_qty">Qty</th>
+                                                    <th data-i18n="th_price">Price</th>
+                                                    <th data-i18n="th_action">Cancel</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="ordersTableBody">
+                                                <tr><td colspan="5" class="text-center text-muted" data-i18n="no_orders">No active open orders</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 5: LIVE TERMINAL & CHART ==================== -->
+                <section id="view-terminal" class="content-view">
+                    
+                    <!-- TradingView Live Interactive Chart -->
+                    <div class="card chart-card">
+                        <div class="card-header chart-header">
+                            <div class="chart-title">
+                                <i class="fa-solid fa-chart-line text-cyan"></i>
+                                <h2><span data-i18n="chart_title">Live TradingView Chart</span></h2>
+                            </div>
+                            <div class="chart-quick-pairs">
+                                <span class="chart-pairs-label" data-i18n="quick_pairs_label">Pairs:</span>
+                                <button class="pair-pill active" onclick="changeChartSymbol('BINANCE:BTCUSDT', this)">BTC/USDT</button>
+                                <button class="pair-pill" onclick="changeChartSymbol('BINANCE:ETHUSDT', this)">ETH/USDT</button>
+                                <button class="pair-pill" onclick="changeChartSymbol('BINANCE:SOLUSDT', this)">SOL/USDT</button>
+                                <button class="pair-pill" onclick="changeChartSymbol('BINANCE:BNBUSDT', this)">BNB/USDT</button>
+                            </div>
+                        </div>
+                        <div class="card-body chart-body-wrapper">
+                            <div id="tv_chart_container" class="tradingview-container"></div>
+                        </div>
+                    </div>
+
+                    <div class="card terminal-card">
+                        <div class="card-header terminal-header">
+                            <div class="terminal-title">
+                                <i class="fa-solid fa-terminal text-emerald"></i>
+                                <h2><span data-i18n="terminal_title">Live Execution Terminal</span></h2>
+                                <span id="wsStatusDot" class="pulse-dot"></span>
+                            </div>
+                            <div class="terminal-actions">
+                                <button class="btn btn-xs btn-outline" onclick="clearTerminalLogs()" title="Clear screen">
+                                    <i class="fa-solid fa-eraser"></i> <span data-i18n="clear_btn">Clear</span>
+                                </button>
+                                <button id="autoScrollToggle" class="btn btn-xs btn-outline active" title="Autoscroll to bottom">
+                                    <i class="fa-solid fa-arrows-down-to-line"></i> <span data-i18n="autoscroll_btn">Auto-scroll</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Terminal Screen -->
+                        <div id="terminalScreen" class="terminal-screen ltr">
+                            <div class="log-line log-info">
+                                <span class="log-time">[00:00:00]</span>
+                                <span class="log-tag">[INIT]</span>
+                                <span class="log-msg">Shark Bot Pro live terminal ready. Listening to WebSocket stream...</span>
+                            </div>
+                        </div>
+
+                        <!-- Simulator Bar -->
+                        <div class="terminal-footer">
+                            <div class="simulator-bar">
+                                <span class="sim-label"><i class="fa-solid fa-vial text-cyan"></i> <span data-i18n="sim_label">Simulate Signal:</span></span>
+                                <input type="text" id="simSymbol" value="BTCUSDT" placeholder="Pair" class="sim-input ltr">
+                                <input type="number" id="simTp" value="2.0" step="0.5" placeholder="TP %" class="sim-input-sm" title="Take Profit %">
+                                <input type="number" id="simSl" value="1.0" step="0.5" placeholder="SL %" class="sim-input-sm" title="Stop Loss %">
+                                <button onclick="sendSimulatedSignal('BUY')" class="btn btn-sm btn-success">
+                                    <i class="fa-solid fa-arrow-trend-up"></i> <span data-i18n="btn_buy">BUY (Long)</span>
+                                </button>
+                                <button onclick="sendSimulatedSignal('SELL')" class="btn btn-sm btn-danger">
+                                    <i class="fa-solid fa-arrow-trend-down"></i> <span data-i18n="btn_sell">SELL (Exit)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ==================== VIEW 6: BEGINNER GUIDE ==================== -->
+                <section id="view-guide" class="content-view">
+                    <div class="card guide-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-graduation-cap text-cyan"></i> <span data-i18n="guide_title">Quick Beginner Manual ("السهل الممتنع")</span></h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="guide-content">
+                                <h3 data-i18n="guide_q1">1. How does Shark Bot Pro work?</h3>
+                                <p data-i18n="guide_a1">Shark Bot connects your TradingView strategy directly to Binance Spot. When your indicator fires a BUY signal, Shark Bot uses your chosen capital percentage (e.g. 100%) to buy immediately, and instantly places Take Profit (TP) and Stop Loss (SL) OCO orders on Binance.</p>
+
+                                <h3 data-i18n="guide_q2">2. What is an OCO Order?</h3>
+                                <p data-i18n="guide_a2">OCO stands for "One-Cancels-the-Other". It places both your Target Profit order and your Stop Loss order at the same time. If the price hits your target, profit is taken and the stop loss is automatically removed. Your funds are protected 24/7 without needing you to watch the screen.</p>
+
+                                <h3 data-i18n="guide_q3">3. How does balance synchronization work?</h3>
+                                <p data-i18n="guide_a3">Whenever you enter or exit a trade, Shark Bot immediately queries Binance and broadcasts your fresh USDT and asset balance via WebSocket. You can also click the "Refresh Now" button at any time to instantly update.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js?v=3"></script>
+</body>
+</html>

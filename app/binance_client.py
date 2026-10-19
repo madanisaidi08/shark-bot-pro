@@ -1,0 +1,251 @@
+import math
+from typing import Dict, Any, Optional, Tuple, List
+from binance.client import Client
+from binance.enums import *
+from app.config import settings
+from app.logger import broadcaster
+
+class BinanceSpotService:
+    def __init__(self):
+        self.client: Optional[Client] = None
+        self.symbol_info_cache: Dict[str, Dict[str, Any]] = {}
+        self._init_client()
+
+    def _init_client(self):
+        if settings.binance_api_key and settings.binance_api_secret:
+            try:
+                self.client = Client(
+                    api_key=settings.binance_api_key,
+                    api_secret=settings.binance_api_secret,
+                    testnet=settings.use_testnet
+                )
+            except Exception as e:
+                self.client = None
+                broadcaster.log_sync("ERROR", f"فشل تهيئة عميل بينانس: {str(e)}")
+        else:
+            self.client = None
+
+    def reload(self):
+        self.symbol_info_cache.clear()
+        self._init_client()
+
+    def is_connected(self) -> bool:
+        if not self.client:
+            return False
+        try:
+            self.client.ping()
+            return True
+        except Exception:
+            return False
+
+    def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+        symbol = symbol.upper()
+        if symbol in self.symbol_info_cache:
+            return self.symbol_info_cache[symbol]
+
+        if not self.client:
+            return None
+
+        try:
+            info = self.client.get_symbol_info(symbol)
+            if info:
+                self.symbol_info_cache[symbol] = info
+                return info
+        except Exception as e:
+            broadcaster.log_sync("ERROR", f"تعذر جلب معلومات الزوج {symbol}: {str(e)}")
+        return None
+
+    def get_symbol_filters(self, symbol: str) -> Dict[str, float]:
+        info = self.get_symbol_info(symbol)
+        filters = {
+            "step_size": 0.000001,
+            "min_qty": 0.000001,
+            "tick_size": 0.01,
+            "min_notional": 5.0
+        }
+        if not info or "filters" not in info:
+            return filters
+
+        for f in info["filters"]:
+            f_type = f.get("filterType")
+            if f_type == "LOT_SIZE":
+                filters["step_size"] = float(f.get("stepSize", 0.000001))
+                filters["min_qty"] = float(f.get("minQty", 0.000001))
+            elif f_type == "PRICE_FILTER":
+                filters["tick_size"] = float(f.get("tickSize", 0.01))
+            elif f_type in ("NOTIONAL", "MIN_NOTIONAL"):
+                filters["min_notional"] = float(f.get("minNotional", 5.0))
+
+        return filters
+
+    def round_step(self, value: float, step: float) -> float:
+        if step == 0:
+            return value
+        precision = int(round(-math.log10(step))) if step < 1 else 0
+        factor = 10 ** precision
+        return math.floor(value * factor) / factor
+
+    def round_tick(self, value: float, tick: float) -> float:
+        if tick == 0:
+            return value
+        precision = int(round(-math.log10(tick))) if tick < 1 else 0
+        return round(value, precision)
+
+    def get_ticker_price(self, symbol: str) -> float:
+        if not self.client:
+            raise Exception("عميل بينانس غير متصل. يرجى إدخال مفاتيح API أولاً.")
+        ticker = self.client.get_symbol_ticker(symbol=symbol.upper())
+        return float(ticker["price"])
+
+    def get_balances(self) -> Dict[str, Any]:
+        if not self.client:
+            return {"connected": False, "balances": [], "usdt_free": 0.0, "total_wallet_estimate": 0.0}
+
+        try:
+            account = self.client.get_account()
+            balances = account.get("balances", [])
+            usdt_free = 0.0
+            non_zero_balances = []
+
+            for b in balances:
+                free = float(b.get("free", 0.0))
+                locked = float(b.get("locked", 0.0))
+                asset = b.get("asset")
+
+                if asset == "USDT":
+                    usdt_free = free
+
+                if free > 0.00000001 or locked > 0.00000001:
+                    non_zero_balances.append({
+                        "asset": asset,
+                        "free": free,
+                        "locked": locked,
+                        "total": free + locked
+                    })
+
+            return {
+                "connected": True,
+                "can_trade": account.get("canTrade", False),
+                "usdt_free": usdt_free,
+                "balances": non_zero_balances
+            }
+        except Exception as e:
+            return {"connected": False, "error": str(e), "balances": [], "usdt_free": 0.0}
+
+    def get_asset_free_balance(self, asset: str) -> float:
+        if not self.client:
+            return 0.0
+        try:
+            balance = self.client.get_asset_balance(asset=asset.upper())
+            return float(balance["free"]) if balance else 0.0
+        except Exception:
+            return 0.0
+
+    def place_market_buy(self, symbol: str, quote_quantity: float) -> Dict[str, Any]:
+        """
+        شراء فوري عبر تحديد كمية العملة المقابلة (USDT)
+        quote_order_qty يتيح شراء بقيمة دولارية محددة مباشرة دون حساب يدوي معقد.
+        """
+        if not self.client:
+            raise Exception("عميل بينانس غير متصل")
+
+        symbol = symbol.upper()
+        order = self.client.order_market_buy(
+            symbol=symbol,
+            quoteOrderQty=round(quote_quantity, 2)
+        )
+        return order
+
+    def place_market_sell(self, symbol: str, quantity: float) -> Dict[str, Any]:
+        """
+        بيع فوري لكمية محددة من العملة
+        """
+        if not self.client:
+            raise Exception("عميل بينانس غير متصل")
+
+        symbol = symbol.upper()
+        filters = self.get_symbol_filters(symbol)
+        adjusted_qty = self.round_step(quantity, filters["step_size"])
+
+        if adjusted_qty < filters["min_qty"]:
+            raise Exception(f"الكمية {adjusted_qty} أقل من الحد الأدنى للطلب {filters['min_qty']}")
+
+        # تنسيق الكمية كسلسلة رقمية دقيقة لتجنب الأخطاء
+        step_precision = max(0, int(round(-math.log10(filters["step_size"])))) if filters["step_size"] < 1 else 0
+        qty_str = f"{adjusted_qty:.{step_precision}f}"
+
+        order = self.client.order_market_sell(
+            symbol=symbol,
+            quantity=qty_str
+        )
+        return order
+
+    def place_oco_sell(self, symbol: str, quantity: float, tp_price: float, sl_stop_price: float, sl_limit_price: float) -> Dict[str, Any]:
+        """
+        إنشاء أمر OCO (أمر يلغي الآخر) على Spot:
+        - أمر بيع محدد لأخذ الربح (Take Profit Limit)
+        - أمر وقف خسارة محدد (Stop Loss Limit)
+        """
+        if not self.client:
+            raise Exception("عميل بينانس غير متصل")
+
+        symbol = symbol.upper()
+        filters = self.get_symbol_filters(symbol)
+
+        adjusted_qty = self.round_step(quantity, filters["step_size"])
+        step_precision = max(0, int(round(-math.log10(filters["step_size"])))) if filters["step_size"] < 1 else 0
+        qty_str = f"{adjusted_qty:.{step_precision}f}"
+
+        tick_precision = max(0, int(round(-math.log10(filters["tick_size"])))) if filters["tick_size"] < 1 else 2
+        tp_price_rounded = self.round_tick(tp_price, filters["tick_size"])
+        sl_stop_rounded = self.round_tick(sl_stop_price, filters["tick_size"])
+        sl_limit_rounded = self.round_tick(sl_limit_price, filters["tick_size"])
+
+        tp_str = f"{tp_price_rounded:.{tick_precision}f}"
+        sl_stop_str = f"{sl_stop_rounded:.{tick_precision}f}"
+        sl_limit_str = f"{sl_limit_rounded:.{tick_precision}f}"
+
+        order = self.client.create_oco_order(
+            symbol=symbol,
+            side=SIDE_SELL,
+            quantity=qty_str,
+            price=tp_str,
+            stopPrice=sl_stop_str,
+            stopLimitPrice=sl_limit_str,
+            stopLimitTimeInForce=TIME_IN_FORCE_GTC
+        )
+        return order
+
+    def cancel_open_orders_for_symbol(self, symbol: str) -> List[Dict[str, Any]]:
+        """
+        إلغاء جميع الأوامر المفتوحة للزوج (مثل أوامر OCO السابقة عند صدور إشارة بيع جديدة)
+        """
+        if not self.client:
+            return []
+
+        symbol = symbol.upper()
+        try:
+            open_orders = self.client.get_open_orders(symbol=symbol)
+            canceled = []
+            for order in open_orders:
+                try:
+                    c = self.client.cancel_order(symbol=symbol, orderId=order["orderId"])
+                    canceled.append(c)
+                except Exception:
+                    pass
+            return canceled
+        except Exception as e:
+            broadcaster.log_sync("WARNING", f"تعذر إلغاء الأوامر المفتوحة للزوج {symbol}: {str(e)}")
+            return []
+
+    def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict[str, Any]]:
+        if not self.client:
+            return []
+        try:
+            if symbol:
+                return self.client.get_open_orders(symbol=symbol.upper())
+            return self.client.get_open_orders()
+        except Exception:
+            return []
+
+binance_service = BinanceSpotService()

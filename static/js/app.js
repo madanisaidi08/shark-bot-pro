@@ -1,0 +1,888 @@
+let ws = null;
+let autoScroll = true;
+let currentConfig = {};
+let currentLanguage = localStorage.getItem("shark_bot_lang") || "en";
+let currentView = "dashboard";
+
+// Comprehensive Bilingual Translations
+const translations = {
+    en: {
+        market_predator: "Market Predator",
+        nav_section_main: "MAIN",
+        nav_dashboard: "Dashboard",
+        nav_exchanges: "My Exchanges",
+        nav_positions: "Positions",
+        nav_section_bots: "TRADING BOTS",
+        nav_signal_bot: "Signal Bot (Webhook)",
+        nav_section_manual: "MANUAL TRADING",
+        nav_terminal: "Live Terminal",
+        nav_section_other: "SYSTEM",
+        nav_guide: "Beginner Guide",
+        language_label: "Language:",
+        dashboard_subtitle: "Overview & Real-Time Performance",
+        exchanges_subtitle: "Manage Binance API Connections & Keys",
+        positions_subtitle: "Live Spot Portfolio & Active OCO Orders",
+        signal_bot_subtitle: "TradingView Webhook Configuration & Sizing",
+        terminal_subtitle: "Real-Time WebSocket Stream & Trade Logs",
+        guide_subtitle: "Step-by-Step Platform Manual",
+        available_usdt: "Available USDT",
+        capital_allocation: "Capital Allocation",
+        order_protection: "Order Protection",
+        webhook_endpoint: "Webhook Endpoint",
+        copy_url: "Copy Webhook URL",
+        binance_online: "Binance: Connected ✅",
+        binance_offline: "Binance: Offline ⚠️",
+        mode_testnet: "Testnet (Demo)",
+        mode_live: "Live (Real Money)",
+        bot_running: "Bot: Active",
+        bot_paused: "Bot: Paused",
+        hero_status_tag: "PREDATOR EXECUTION ENGINE ACTIVE",
+        hero_title: "Rule The Markets with Shark Bot Pro",
+        hero_desc: "Lightning-fast Binance Spot execution driven by TradingView alerts. Designed with intuitive simplicity so beginners can start in minutes, backed by institutional speed.",
+        btn_configure_bot: "Configure Signal Bot",
+        btn_view_terminal: "Open Live Terminal",
+        how_it_works_title: "How It Works in 3 Simple Steps (Intuitive Simplicity)",
+        step_1_title: "1. Connect Binance",
+        step_1_desc: "Add your Binance API Key & Secret (Testnet or Live) in the Exchanges tab.",
+        step_2_title: "2. Setup Signal Bot",
+        step_2_desc: "Set your Capital % (e.g. 100%) and TP/SL goals, then copy your Alert JSON.",
+        step_3_title: "3. Automate Trading",
+        step_3_desc: "Paste into TradingView. Shark Bot executes trades and locks TP/SL instantly.",
+        card_trading_title: "Trading & Capital Settings",
+        capital_slider_label: "Purchase Capital Percentage:",
+        capital_full: "100% (Full Balance)",
+        default_tp_label: "Take Profit Target (TP %)",
+        default_sl_label: "Stop Loss Target (SL %)",
+        save_settings_btn: "Save Trading Settings",
+        card_binance_title: "Binance API Connection",
+        binance_desc: "Official REST & WebSocket integration",
+        api_key_label: "Binance API Key",
+        api_secret_label: "Binance API Secret",
+        testnet_toggle_label: "Enable Testnet (Uncheck for Real Live Trading)",
+        save_connect_btn: "Save & Verify Connection",
+        card_tv_title: "TradingView Webhook Integration",
+        webhook_setup_title: "Webhook Connection & Endpoint",
+        webhook_url_label: "Webhook URL (Paste in TradingView):",
+        webhook_security_tip: "This passphrase protects your bot. Any alert without this exact passphrase will be rejected immediately.",
+        preset_100: "100% (Full)",
+        calc_available: "Available USDT:",
+        calc_per_trade: "Estimated Trade Allocation:",
+        buy_signal_title: "1. BUY Signal Setup (Entry)",
+        action_buy: "MARKET BUY",
+        buy_signal_desc: "When your indicator triggers BUY, Shark Bot executes a Market Buy using your allocated capital % and instantly places Take Profit & Stop Loss (OCO) orders on Binance.",
+        buy_payload_label: "TradingView Alert Message (BUY):",
+        copy_buy_btn: "Copy BUY JSON",
+        test_buy_btn: "Test BUY",
+        sell_signal_title: "2. SELL Signal Setup (Exit)",
+        action_sell: "MARKET SELL",
+        sell_signal_desc: "When your indicator triggers SELL/CLOSE, Shark Bot cancels pending OCO orders and executes a Market Sell for 100% of the coin, returning capital to USDT immediately.",
+        sell_payload_label: "TradingView Alert Message (SELL):",
+        copy_sell_btn: "Copy SELL JSON",
+        test_sell_btn: "Test SELL",
+        pinescript_title: "Ready-to-Use Pine Script v5 Code (TradingView Indicator)",
+        copy_code_btn: "Copy Full Pine Script",
+        pinescript_desc: "Paste this code directly into the Pine Editor at the bottom of TradingView. It automatically configures buy/sell conditions and sends alerts to your Shark Bot Webhook!",
+        secret_label: "Webhook Security Passphrase (Secret):",
+        payload_label: "Alert Message JSON Payload:",
+        copy_btn: "Copy",
+        tv_tip: "In TradingView: Set <strong>Webhook URL</strong> to your endpoint, and paste the code above into the <strong>Message</strong> box.",
+        chart_title: "Live TradingView Interactive Chart",
+        quick_pairs_label: "Pairs:",
+        terminal_title: "Live Execution Terminal",
+        clear_btn: "Clear",
+        autoscroll_btn: "Auto-scroll",
+        sim_label: "Simulate Signal:",
+        btn_buy: "BUY (Long)",
+        btn_sell: "SELL (Exit)",
+        portfolio_title: "Live Wallet Balances & Open Orders",
+        refresh_btn: "Refresh Now",
+        assets_title: "Wallet Assets",
+        th_asset: "Asset",
+        th_free: "Free",
+        th_locked: "Locked",
+        no_assets: "No assets or account not connected",
+        open_orders_title: "Open Orders (OCO / Limit)",
+        th_symbol: "Symbol",
+        th_side: "Side",
+        th_qty: "Qty",
+        th_price: "Price",
+        th_action: "Cancel",
+        no_orders: "No active open orders",
+        confirm_cancel: "Are you sure you want to cancel all open orders for ",
+        keys_saved_success: "Connected to Binance successfully! ✅",
+        keys_saved_failed: "API keys saved, but connection failed. Please check permissions & IP restrictions.",
+        guide_title: "Quick Beginner Manual (\"السهل الممتنع\")",
+        guide_q1: "1. How does Shark Bot Pro work?",
+        guide_a1: "Shark Bot connects your TradingView strategy directly to Binance Spot. When your indicator fires a BUY signal, Shark Bot uses your chosen capital percentage (e.g. 100%) to buy immediately, and instantly places Take Profit (TP) and Stop Loss (SL) OCO orders on Binance.",
+        guide_q2: "2. What is an OCO Order?",
+        guide_a2: "OCO stands for \"One-Cancels-the-Other\". It places both your Target Profit order and your Stop Loss order at the same time. If the price hits your target, profit is taken and the stop loss is automatically removed. Your funds are protected 24/7 without needing you to watch the screen.",
+        guide_q3: "3. How does balance synchronization work?",
+        guide_a3: "Whenever you enter or exit a trade, Shark Bot immediately queries Binance and broadcasts your fresh USDT and asset balance via WebSocket. You can also click the \"Refresh Now\" button at any time to instantly update."
+    },
+    ar: {
+        market_predator: "المفترس في أسواق المال",
+        nav_section_main: "الرئيسية",
+        nav_dashboard: "الداشبورد",
+        nav_exchanges: "منصات التداول",
+        nav_positions: "المراكز والصفقات",
+        nav_section_bots: "بوتات التداول",
+        nav_signal_bot: "بوت الإشارات (Webhook)",
+        nav_section_manual: "التداول اليدوي",
+        nav_terminal: "التيرمينال الحي",
+        nav_section_other: "النظام",
+        nav_guide: "دليل المبتدئين",
+        language_label: "اللغة:",
+        dashboard_subtitle: "نظرة عامة والأداء اللحظي",
+        exchanges_subtitle: "إدارة والربط بحساب بينانس ومفاتيح API",
+        positions_subtitle: "المحفظة الفورية وأوامر OCO المعلقة",
+        signal_bot_subtitle: "إعدادات إشارات TradingView وحجم رأس المال",
+        terminal_subtitle: "البث الحي وسجلات الصفقات عبر WebSocket",
+        guide_subtitle: "شرح استخدام المنصة خطوة بخطوة",
+        available_usdt: "رصيد USDT المتاح",
+        capital_allocation: "نسبة الدخول من رأس المال",
+        order_protection: "حماية الأوامر (Spot)",
+        webhook_endpoint: "رابط Webhook",
+        copy_url: "نسخ رابط الـ Webhook",
+        binance_online: "بينانس: متصل ✅",
+        binance_offline: "بينانس: غير متصل ⚠️",
+        mode_testnet: "تجريبي (Testnet)",
+        mode_live: "حقيقي (Live)",
+        bot_running: "البوت: يعمل",
+        bot_paused: "البوت: متوقف مؤقتاً",
+        hero_status_tag: "محرك الاقتناص الفوري نشط",
+        hero_title: "سيطر على أسواق المال مع Shark Bot Pro",
+        hero_desc: "تنفيذ فائق السرعة على بينانس Spot مدعوماً بإشارات TradingView. صُمم بأسلوب السهل الممتنع ليبدأ المبتدئ خلال دقائق مع دقة وسرعة الأنظمة المؤسسية.",
+        btn_configure_bot: "إعداد بوت الإشارات",
+        btn_view_terminal: "فتح التيرمينال الحي",
+        how_it_works_title: "كيف يعمل النظام في 3 خطوات بسيطة (السهل الممتنع)",
+        step_1_title: "1. ربط بينانس",
+        step_1_desc: "أدخل مفاتيح API الخاصة بك (تجريبي أو حقيقي) في تبويب منصات التداول.",
+        step_2_title: "2. إعداد البوت ورأس المال",
+        step_2_desc: "حدد نسبة رأس المال (مثلاً 100%) وأهداف الربح والخسارة وانسخ كود التنبيه.",
+        step_3_title: "3. أتمتة التداول",
+        step_3_desc: "الصق الكود في تريدينغ فيو. سينفذ شارك بوت الصفقات ويضع أهداف الربح والخسارة فوراً.",
+        card_trading_title: "إعدادات التداول ورأس المال",
+        capital_slider_label: "نسبة الشراء من رأس المال المتاح:",
+        capital_full: "100% (كامل الرصيد)",
+        default_tp_label: "هدف الربح الافتراضي (TP %)",
+        default_sl_label: "وقف الخسارة الافتراضي (SL %)",
+        save_settings_btn: "حفظ إعدادات التداول",
+        card_binance_title: "ربط حساب بينانس (Binance API)",
+        binance_desc: "الربط الرسمي عبر REST & WebSocket",
+        api_key_label: "Binance API Key",
+        api_secret_label: "Binance API Secret",
+        testnet_toggle_label: "استخدام الحساب التجريبي (قم بإلغاء التحديد للتداول الحقيقي)",
+        save_connect_btn: "حفظ واختبار الاتصال",
+        card_tv_title: "إعدادات تنبيهات TradingView",
+        webhook_setup_title: "نقطة اتصال ورابط الـ Webhook",
+        webhook_url_label: "رابط الـ Webhook (يُلصق في TradingView):",
+        webhook_security_tip: "كلمة السر هذه تحمي بوتك. سيتم رفض أي إشارة لا تحتوي على كلمة السر هذه فورياً.",
+        preset_100: "100% (كامل الرصيد)",
+        calc_available: "رصيد USDT المتاح:",
+        calc_per_trade: "المبلغ المخصص للصفقة:",
+        buy_signal_title: "1. إعداد إشارة الشراء (BUY - الدخول)",
+        action_buy: "شراء فوري (BUY)",
+        buy_signal_desc: "عند إطلاق إشارة BUY، يشتري البوت فورياً بالنسبة المحددة من رأس المال، ويضع فوراً أهداف الربح ووقف الخسارة (OCO) على بينانس.",
+        buy_payload_label: "رسالة تنبيه الشراء (Message في TradingView):",
+        copy_buy_btn: "نسخ كود الشراء (JSON)",
+        test_buy_btn: "تجربة الشراء",
+        sell_signal_title: "2. إعداد إشارة البيع (SELL - الخروج)",
+        action_sell: "بيع فوري (SELL)",
+        sell_signal_desc: "عند إطلاق إشارة SELL/CLOSE، يلغي البوت أوامر OCO السابقة ويبيع كامل كمية العملة بالدولار فورياً لتكون جاهزة للصفقة القادمة.",
+        sell_payload_label: "رسالة تنبيه البيع (Message في TradingView):",
+        copy_sell_btn: "نسخ كود البيع (JSON)",
+        test_sell_btn: "تجربة البيع",
+        pinescript_title: "كود Pine Script v5 الجاهز (مؤشر TradingView المتكامل)",
+        copy_code_btn: "نسخ كود Pine Script بالكامل",
+        pinescript_desc: "الصق هذا الكود مباشرة في محرر (Pine Editor) أسفل منصة TradingView. سيقوم المؤشر بإرسال إشارات الشراء والبيع تلقائياً إلى بوتك!",
+        secret_label: "كلمة السر الأمنية للـ Webhook (Secret):",
+        payload_label: "صيغة رسالة التنبيه (Alert Message JSON):",
+        copy_btn: "نسخ",
+        tv_tip: "في تريدينغ فيو: في خانة <strong>Webhook URL</strong> ضع الرابط أعلاه، وفي خانة <strong>Message</strong> الصق الكود أعلاه.",
+        chart_title: "شارت TradingView التفاعلي المباشر",
+        quick_pairs_label: "الأزواج السريعة:",
+        terminal_title: "تيرمينال البث المباشر (Live Terminal)",
+        clear_btn: "مسح",
+        autoscroll_btn: "تثبيت بالأسفل",
+        sim_label: "محاكاة إشارة:",
+        btn_buy: "شراء (BUY)",
+        btn_sell: "بيع (SELL)",
+        portfolio_title: "الأصول المتاحة والأوامر المعلقة في بينانس",
+        refresh_btn: "تحديث فوري",
+        assets_title: "العملات في المحفظة",
+        th_asset: "العملة",
+        th_free: "المتاح (Free)",
+        th_locked: "المحجوز (Locked)",
+        no_assets: "لا توجد أصول أو الحساب غير متصل",
+        open_orders_title: "الأوامر المفتوحة (OCO / Limit)",
+        th_symbol: "الزوج",
+        th_side: "النوع",
+        th_qty: "الكمية",
+        th_price: "السعر",
+        th_action: "إلغاء",
+        no_orders: "لا توجد أوامر معلقة حالياً",
+        confirm_cancel: "هل أنت متأكد من إلغاء جميع الأوامر المفتوحة للزوج ",
+        keys_saved_success: "تم الاتصال ببينانس بنجاح! ✅",
+        keys_saved_failed: "تم حفظ المفاتيح، ولكن فشل الاتصال. تأكد من صحتها وصلاحيات الـ IP.",
+        guide_title: "دليل المبتدئين السريع (\"السهل الممتنع\")",
+        guide_q1: "1. كيف يعمل Shark Bot Pro؟",
+        guide_a1: "يقوم شارك بوت بربط استراتيجيتك أو مؤشرك على تريدينغ فيو بحسابك على بينانس Spot مباشرة. عند صدور إشارة شراء، يشتري البوت بالنسبة المحددة (مثلاً 100%) ويضع فوراً أمر OCO يجمع بين أخذ الربح ووقف الخسارة.",
+        guide_q2: "2. ما هو أمر OCO؟",
+        guide_a2: "هو أمر (أمر يلغي الآخر) معتمد رسمياً في بينانس، يضع هدف الربح ووقف الخسارة في وقت واحد. إذا تحقق الهدف تُباع العملة بربح ويُلغى وقف الخسارة تلقائياً، لحماية رأس مالك دون الحاجة لمتابعة الشاشة.",
+        guide_q3: "3. كيف يعمل تحديث الرصيد السريع؟",
+        guide_a3: "بمجرد دخول أو خروج البوت من أي صفقة، يستعلم فوراً عن رصيد USDT الجديد ويبثه عبر الـ WebSocket في أجزاء من الثانية، لتكون أموالك جاهزة للصفقة القادمة."
+    }
+};
+
+// Document Ready
+document.addEventListener("DOMContentLoaded", () => {
+    setLanguage(currentLanguage);
+    initWebSocket();
+    loadBotStatus();
+    loadBalancesAndOrders();
+    setupEventListeners();
+
+    // Auto-sync balance every 12 seconds
+    setInterval(() => {
+        loadBalancesAndOrders(false);
+    }, 12000);
+});
+
+// View Switching Function
+function switchView(viewName) {
+    currentView = viewName;
+
+    // Update active class on nav items
+    document.querySelectorAll(".nav-item").forEach(item => {
+        item.classList.toggle("active", item.getAttribute("data-view") === viewName);
+    });
+
+    // Update active class on content views
+    document.querySelectorAll(".content-view").forEach(view => {
+        view.classList.toggle("active", view.id === `view-${viewName}`);
+    });
+
+    // Update Topbar Title & Subtitle
+    const dict = translations[currentLanguage] || translations.en;
+    const titleEl = document.getElementById("currentPageTitle");
+    const subtitleEl = document.getElementById("currentPageSubtitle");
+
+    const titleKey = `nav_${viewName.replace("-", "_")}`;
+    const subtitleKey = `${viewName.replace("-", "_")}_subtitle`;
+
+    if (titleEl && dict[titleKey]) titleEl.textContent = dict[titleKey];
+    if (subtitleEl && dict[subtitleKey]) subtitleEl.textContent = dict[subtitleKey];
+
+    // Load TradingView chart when switching to terminal view
+    if (viewName === "terminal") {
+        setTimeout(() => loadTradingViewChart(currentChartSymbol), 100);
+    }
+
+    // Close mobile sidebar if open
+    document.querySelector(".sidebar")?.classList.remove("open");
+}
+
+let currentChartSymbol = "BINANCE:BTCUSDT";
+
+function loadTradingViewChart(symbol = currentChartSymbol) {
+    currentChartSymbol = symbol;
+    const container = document.getElementById("tv_chart_container");
+    if (!container) return;
+
+    if (typeof TradingView === "undefined") {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;">Loading TradingView Chart Engine...</div>';
+        setTimeout(() => loadTradingViewChart(symbol), 600);
+        return;
+    }
+
+    container.innerHTML = "";
+    try {
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": symbol,
+            "interval": "15",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": currentLanguage === "ar" ? "ar" : "en",
+            "toolbar_bg": "#090d16",
+            "enable_publishing": false,
+            "allow_symbol_change": true,
+            "save_image": false,
+            "container_id": "tv_chart_container",
+            "studies": [
+                "STD;RSI",
+                "STD;MACD"
+            ]
+        });
+    } catch (e) {
+        console.error("Failed to load TV chart:", e);
+    }
+}
+
+function changeChartSymbol(symbol, btn) {
+    document.querySelectorAll(".pair-pill").forEach(p => p.classList.remove("active"));
+    btn?.classList.add("active");
+
+    const simInput = document.getElementById("simSymbol");
+    if (simInput) {
+        simInput.value = symbol.replace("BINANCE:", "");
+    }
+
+    loadTradingViewChart(symbol);
+}
+
+function toggleSidebar() {
+    document.querySelector(".sidebar")?.classList.toggle("open");
+}
+
+// Language Switcher Function
+function setLanguage(lang) {
+    currentLanguage = lang;
+    localStorage.setItem("shark_bot_lang", lang);
+
+    document.documentElement.lang = lang;
+    document.documentElement.dir = (lang === "ar" ? "rtl" : "ltr");
+
+    // Toggle active state on pills
+    document.getElementById("langEnBtn")?.classList.toggle("active", lang === "en");
+    document.getElementById("langArBtn")?.classList.toggle("active", lang === "ar");
+
+    // Translate all elements with data-i18n
+    const dict = translations[lang] || translations.en;
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key]) {
+            el.innerHTML = dict[key];
+        }
+    });
+
+    // Update title for current view
+    switchView(currentView);
+
+    // Re-render badges
+    updateStatusBadges(currentConfig);
+}
+
+// WebSocket Connection for Live Terminal & Instant Balance Updates
+function initWebSocket() {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
+    const dot = document.getElementById("wsStatusDot");
+    const sideDot = document.getElementById("sidebarTerminalPulse");
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        if (dot) dot.style.backgroundColor = "var(--emerald)";
+        if (sideDot) sideDot.style.display = "inline-block";
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            
+            // Check if this is an instant balance update event
+            if (data.type === "event" && data.event === "balance_updated") {
+                handleLiveBalanceUpdate(data.payload);
+            } else if (data.level || data.message) {
+                appendTerminalLog(data);
+            }
+        } catch (e) {
+            console.error("Failed to parse WS data:", e);
+        }
+    };
+
+    ws.onclose = () => {
+        if (dot) dot.style.backgroundColor = "var(--danger)";
+        setTimeout(initWebSocket, 3000);
+    };
+
+    ws.onerror = () => {
+        if (dot) dot.style.backgroundColor = "var(--danger)";
+    };
+}
+
+// Append live log to terminal
+function appendTerminalLog(log) {
+    const screen = document.getElementById("terminalScreen");
+    if (!screen) return;
+
+    const row = document.createElement("div");
+    const level = (log.level || "INFO").toLowerCase();
+    row.className = `log-line log-${level}`;
+
+    const time = log.timestamp ? log.timestamp.split(" ")[1] : new Date().toLocaleTimeString();
+    row.innerHTML = `
+        <span class="log-time">[${time}]</span>
+        <span class="log-tag">[${log.level || 'INFO'}]</span>
+        <span class="log-msg">${escapeHtml(log.message)}</span>
+    `;
+
+    screen.appendChild(row);
+
+    if (autoScroll) {
+        screen.scrollTop = screen.scrollHeight;
+    }
+}
+
+function clearTerminalLogs() {
+    const screen = document.getElementById("terminalScreen");
+    if (screen) screen.innerHTML = "";
+}
+
+let lastKnownUsdt = 0;
+
+// Instant Live Balance Update with Pulse Animation
+function handleLiveBalanceUpdate(balData) {
+    if (!balData) return;
+
+    lastKnownUsdt = parseFloat(balData.usdt_free || 0);
+    const amount = lastKnownUsdt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    
+    // Update both Topbar balance chip and Dashboard balance card
+    const topDisplay = document.getElementById("topUsdtBalance");
+    const dashDisplay = document.getElementById("usdtBalance");
+
+    if (topDisplay) {
+        topDisplay.innerHTML = `${amount} <span class="unit">USDT</span>`;
+        topDisplay.classList.remove("balance-pulse");
+        void topDisplay.offsetWidth;
+        topDisplay.classList.add("balance-pulse");
+    }
+
+    if (dashDisplay) {
+        dashDisplay.innerHTML = `${amount} <span class="unit">USDT</span>`;
+        dashDisplay.classList.remove("balance-pulse");
+        void dashDisplay.offsetWidth;
+        dashDisplay.classList.add("balance-pulse");
+    }
+
+    updateCapitalCalculator();
+    renderBalancesTable(balData.balances || []);
+}
+
+// Fetch Initial Status and Config
+async function loadBotStatus() {
+    try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        currentConfig = data;
+
+        updateStatusBadges(data);
+        updateSlidersAndInputs(data);
+        updatePayloadPreview();
+    } catch (e) {
+        console.error("Failed to load status:", e);
+    }
+}
+
+function updateStatusBadges(data) {
+    const dict = translations[currentLanguage] || translations.en;
+
+    // Sidebar status
+    const sideDot = document.getElementById("sideStatusDot");
+    const sideText = document.getElementById("sideStatusText");
+    const pill = document.getElementById("exchangeStatusPill");
+    const pillText = document.getElementById("exchangeStatusPillText");
+
+    if (data.binance_connected) {
+        if (sideDot) sideDot.className = "mini-status-dot online";
+        if (sideText) sideText.textContent = dict.binance_online;
+        if (pill) pill.className = "status-badge badge-online";
+        if (pillText) pillText.textContent = dict.binance_online;
+    } else {
+        if (sideDot) sideDot.className = "mini-status-dot offline";
+        if (sideText) sideText.textContent = dict.binance_offline;
+        if (pill) pill.className = "status-badge badge-offline";
+        if (pillText) pillText.textContent = dict.binance_offline;
+    }
+
+    // Mode badge
+    const modeBadge = document.getElementById("modeBadge");
+    const modeText = document.getElementById("modeText");
+    if (data.use_testnet) {
+        modeBadge.className = "status-badge badge-warning";
+        modeText.textContent = dict.mode_testnet;
+    } else {
+        modeBadge.className = "status-badge badge-online";
+        modeText.textContent = dict.mode_live;
+    }
+
+    // Bot toggle button
+    const toggleBtn = document.getElementById("toggleBotBtn");
+    const botBtnText = document.getElementById("botBtnText");
+    if (data.bot_enabled) {
+        toggleBtn.className = "btn btn-sm btn-success";
+        botBtnText.textContent = dict.bot_running;
+    } else {
+        toggleBtn.className = "btn btn-sm btn-danger";
+        botBtnText.textContent = dict.bot_paused;
+    }
+
+    const capDisplay = document.getElementById("capitalPercentDisplay");
+    if (capDisplay) capDisplay.textContent = `${data.capital_percent || 100}%`;
+}
+
+function updateSlidersAndInputs(data) {
+    const capital = data.capital_percent || 100;
+    const slider = document.getElementById("capitalSlider");
+    const sliderVal = document.getElementById("sliderValue");
+    if (slider) slider.value = capital;
+    if (sliderVal) sliderVal.textContent = `${capital}%`;
+
+    const tpInput = document.getElementById("defaultTp");
+    if (tpInput && data.default_tp_percent) tpInput.value = data.default_tp_percent;
+
+    const slInput = document.getElementById("defaultSl");
+    if (slInput && data.default_sl_percent) slInput.value = data.default_sl_percent;
+
+    const secretInput = document.getElementById("webhookSecret");
+    if (secretInput && data.webhook_passphrase) secretInput.value = data.webhook_passphrase;
+
+    const testnetToggle = document.getElementById("testnetToggle");
+    if (testnetToggle) testnetToggle.checked = Boolean(data.use_testnet);
+}
+
+// Fetch balances and open orders
+async function loadBalancesAndOrders(showAnimation = true) {
+    try {
+        const balRes = await fetch("/api/balances");
+        const balData = await balRes.json();
+        handleLiveBalanceUpdate(balData);
+
+        const ordRes = await fetch("/api/orders");
+        const ordData = await ordRes.json();
+        renderOrdersTable(ordData.orders || []);
+    } catch (e) {
+        console.error("Failed to load balances/orders:", e);
+    }
+}
+
+function renderBalancesTable(balances) {
+    const balBody = document.getElementById("balancesTableBody");
+    const dict = translations[currentLanguage] || translations.en;
+    if (!balBody) return;
+
+    if (balances && balances.length > 0) {
+        balBody.innerHTML = balances.map(b => `
+            <tr>
+                <td class="text-cyan"><strong>${b.asset}</strong></td>
+                <td>${parseFloat(b.free).toFixed(6)}</td>
+                <td class="text-muted">${parseFloat(b.locked).toFixed(6)}</td>
+            </tr>
+        `).join("");
+    } else {
+        balBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">${dict.no_assets}</td></tr>`;
+    }
+}
+
+function renderOrdersTable(orders) {
+    const ordBody = document.getElementById("ordersTableBody");
+    const dict = translations[currentLanguage] || translations.en;
+    if (!ordBody) return;
+
+    if (orders && orders.length > 0) {
+        ordBody.innerHTML = orders.map(o => `
+            <tr>
+                <td><strong>${o.symbol}</strong></td>
+                <td><span class="badge ${o.side === 'BUY' ? 'text-emerald' : 'text-danger'}">${o.side} (${o.type})</span></td>
+                <td>${parseFloat(o.origQty).toFixed(4)}</td>
+                <td>$${parseFloat(o.price || o.stopPrice || 0).toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-xs btn-outline text-danger" onclick="cancelOrderForSymbol('${o.symbol}')">
+                        ${dict.th_action}
+                    </button>
+                </td>
+            </tr>
+        `).join("");
+    } else {
+        ordBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">${dict.no_orders}</td></tr>`;
+    }
+}
+
+// Manual Fast Refresh Button
+async function manualRefreshBalances() {
+    const btn = document.getElementById("refreshBalanceBtn");
+    btn?.classList.add("spinning");
+    await loadBalancesAndOrders(true);
+    setTimeout(() => {
+        btn?.classList.remove("spinning");
+    }, 600);
+}
+
+function refreshBalancesAndOrders() {
+    manualRefreshBalances();
+}
+
+// Setup Event Listeners
+function setupEventListeners() {
+    // Capital Slider
+    const slider = document.getElementById("capitalSlider");
+    const sliderVal = document.getElementById("sliderValue");
+    if (slider) {
+        slider.addEventListener("input", (e) => {
+            sliderVal.textContent = `${e.target.value}%`;
+            const capDisplay = document.getElementById("capitalPercentDisplay");
+            if (capDisplay) capDisplay.textContent = `${e.target.value}%`;
+            updatePayloadPreview();
+        });
+    }
+
+    // Toggle Bot Master Switch
+    const toggleBtn = document.getElementById("toggleBotBtn");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", async () => {
+            const newState = !currentConfig.bot_enabled;
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ bot_enabled: newState })
+            });
+            currentConfig.bot_enabled = newState;
+            updateStatusBadges(currentConfig);
+        });
+    }
+
+    // Save Trading Settings
+    const saveTradeBtn = document.getElementById("saveTradingSettingsBtn");
+    if (saveTradeBtn) {
+        saveTradeBtn.addEventListener("click", async () => {
+            const capital = parseFloat(document.getElementById("capitalSlider").value);
+            const tp = parseFloat(document.getElementById("defaultTp").value);
+            const sl = parseFloat(document.getElementById("defaultSl").value);
+
+            await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    capital_percent: capital,
+                    default_tp_percent: tp,
+                    default_sl_percent: sl
+                })
+            });
+            alert(currentLanguage === "ar" ? "تم حفظ إعدادات رأس المال والربح/الخسارة بنجاح!" : "Trading settings saved successfully!");
+            loadBotStatus();
+        });
+    }
+
+    // Save API Keys
+    const saveApiBtn = document.getElementById("saveApiKeysBtn");
+    if (saveApiBtn) {
+        saveApiBtn.addEventListener("click", async () => {
+            const apiKey = document.getElementById("binanceApiKey").value;
+            const apiSecret = document.getElementById("binanceApiSecret").value;
+            const useTestnet = document.getElementById("testnetToggle").checked;
+
+            const payload = { use_testnet: useTestnet };
+            if (apiKey) payload.binance_api_key = apiKey;
+            if (apiSecret) payload.binance_api_secret = apiSecret;
+
+            const res = await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            const dict = translations[currentLanguage] || translations.en;
+            alert(data.binance_connected ? dict.keys_saved_success : dict.keys_saved_failed);
+            loadBotStatus();
+            loadBalancesAndOrders();
+        });
+    }
+
+    // Autoscroll button
+    const autoScrollBtn = document.getElementById("autoScrollToggle");
+    if (autoScrollBtn) {
+        autoScrollBtn.addEventListener("click", () => {
+            autoScroll = !autoScroll;
+            autoScrollBtn.classList.toggle("active", autoScroll);
+        });
+    }
+}
+
+// Capital Preset Buttons
+function setCapitalPreset(percent) {
+    const slider = document.getElementById("capitalSlider");
+    const sliderVal = document.getElementById("sliderValue");
+    if (slider) slider.value = percent;
+    if (sliderVal) sliderVal.textContent = `${percent}%`;
+
+    const capDisplay = document.getElementById("capitalPercentDisplay");
+    if (capDisplay) capDisplay.textContent = `${percent}%`;
+
+    // Update active class on preset buttons
+    document.querySelectorAll(".preset-btn").forEach(btn => {
+        const text = btn.textContent.trim();
+        btn.classList.toggle("active", text.startsWith(`${percent}%`));
+    });
+
+    updateCapitalCalculator();
+    updatePayloadPreview();
+}
+
+// Dynamic Capital Calculator
+function updateCapitalCalculator() {
+    const slider = document.getElementById("capitalSlider");
+    const capitalPct = parseFloat(slider?.value || 100);
+    const estimated = (lastKnownUsdt * (capitalPct / 100.0));
+
+    const availEl = document.getElementById("calcAvailableUsdt");
+    const estimEl = document.getElementById("calcEstimatedTrade");
+
+    if (availEl) {
+        availEl.textContent = `${lastKnownUsdt.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDT`;
+    }
+    if (estimEl) {
+        estimEl.textContent = `~${estimated.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDT (${capitalPct}%)`;
+    }
+}
+
+// Update TradingView Code Payloads for BUY and SELL
+function updatePayloadPreview() {
+    const secret = document.getElementById("webhookSecret")?.value || "secure_trading_pass_2026";
+    const capital = parseFloat(document.getElementById("capitalSlider")?.value || 100);
+    const tp = parseFloat(document.getElementById("defaultTp")?.value || 2.5);
+    const sl = parseFloat(document.getElementById("defaultSl")?.value || 1.2);
+
+    // BUY Payload
+    const buyPayload = {
+        "secret": secret,
+        "action": "BUY",
+        "symbol": "{{ticker}}",
+        "tp_percent": tp,
+        "sl_percent": sl,
+        "capital_percent": capital
+    };
+
+    // SELL Payload
+    const sellPayload = {
+        "secret": secret,
+        "action": "SELL",
+        "symbol": "{{ticker}}"
+    };
+
+    const buyPre = document.getElementById("tvBuyPayloadCode");
+    if (buyPre) buyPre.textContent = JSON.stringify(buyPayload, null, 2);
+
+    const sellPre = document.getElementById("tvSellPayloadCode");
+    if (sellPre) sellPre.textContent = JSON.stringify(sellPayload, null, 2);
+
+    // Webhook URL display
+    const urlDisplay = document.getElementById("webhookDisplayUrl");
+    if (urlDisplay) {
+        urlDisplay.value = `${window.location.protocol}//${window.location.host}/api/webhook`;
+    }
+
+    // Dynamic Pine Script Code update
+    const pineBox = document.getElementById("pineScriptCodeBox");
+    if (pineBox) {
+        pineBox.textContent = `// © Shark Bot Pro - Automated Binance Spot Strategy Template
+//@version=5
+indicator("Shark Bot Pro - Strategy Indicator", overlay=true)
+
+// 1. Indicator Parameters (e.g. Fast & Slow EMAs)
+fastLength = input.int(9, title="Fast EMA Length")
+slowLength = input.int(21, title="Slow EMA Length")
+tpPercent  = input.float(${tp}, title="Take Profit %")
+slPercent  = input.float(${sl}, title="Stop Loss %")
+capitalPct = input.int(${capital}, title="Capital % Allocation")
+secretKey  = input.string("${secret}", title="Webhook Secret")
+
+// 2. Calculation
+fastEMA = ta.ema(close, fastLength)
+slowEMA = ta.ema(close, slowLength)
+
+plot(fastEMA, color=color.cyan, title="Fast EMA")
+plot(slowEMA, color=color.orange, title="Slow EMA")
+
+// 3. Buy and Sell Conditions
+buyCondition  = ta.crossover(fastEMA, slowEMA)
+sellCondition = ta.crossunder(fastEMA, slowEMA)
+
+plotshape(buyCondition, title="Buy Signal", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, text="BUY")
+plotshape(sellCondition, title="Sell Signal", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, text="SELL")
+
+// 4. Send Webhook Alerts to Shark Bot Pro
+if (buyCondition)
+    alert('{"secret": "' + secretKey + '", "action": "BUY", "symbol": "' + syminfo.ticker + '", "tp_percent": ' + str.tostring(tpPercent) + ', "sl_percent": ' + str.tostring(slPercent) + ', "capital_percent": ' + str.tostring(capitalPct) + '}', alert.freq_once_per_bar_close)
+
+if (sellCondition)
+    alert('{"secret": "' + secretKey + '", "action": "SELL", "symbol": "' + syminfo.ticker + '"}', alert.freq_once_per_bar_close)`;
+    }
+
+    updateCapitalCalculator();
+}
+
+function copyBuyPayload() {
+    const code = document.getElementById("tvBuyPayloadCode")?.textContent;
+    if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+            alert(currentLanguage === "ar" ? "تم نسخ كود إشارة الشراء (BUY JSON) بنجاح!" : "BUY Alert JSON copied successfully!");
+        });
+    }
+}
+
+function copySellPayload() {
+    const code = document.getElementById("tvSellPayloadCode")?.textContent;
+    if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+            alert(currentLanguage === "ar" ? "تم نسخ كود إشارة البيع (SELL JSON) بنجاح!" : "SELL Alert JSON copied successfully!");
+        });
+    }
+}
+
+function copyPineScriptCode() {
+    const code = document.getElementById("pineScriptCodeBox")?.textContent;
+    if (code) {
+        navigator.clipboard.writeText(code).then(() => {
+            alert(currentLanguage === "ar" ? "تم نسخ كود Pine Script بالكامل! يمكنك لصقه الآن في محرر تريدينغ فيو." : "Full Pine Script code copied! You can now paste it into TradingView's Pine Editor.");
+        });
+    }
+}
+
+function copyAlertPayload() {
+    copyBuyPayload();
+}
+
+async function cancelOrderForSymbol(symbol) {
+    const dict = translations[currentLanguage] || translations.en;
+    if (confirm(`${dict.confirm_cancel} ${symbol}?`)) {
+        await fetch(`/api/cancel-orders?symbol=${symbol}`, { method: "POST" });
+        loadBalancesAndOrders();
+    }
+}
+
+// Send simulated signal from Dashboard
+async function sendSimulatedSignal(action) {
+    const symbol = document.getElementById("simSymbol").value.trim().toUpperCase() || "BTCUSDT";
+    const tp = parseFloat(document.getElementById("simTp").value) || 2.0;
+    const sl = parseFloat(document.getElementById("simSl").value) || 1.0;
+
+    try {
+        const res = await fetch("/api/test-signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: action,
+                symbol: symbol,
+                tp_percent: tp,
+                sl_percent: sl
+            })
+        });
+        const result = await res.json();
+        console.log("Simulated Signal result:", result);
+    } catch (e) {
+        console.error("Error sending simulated signal:", e);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}

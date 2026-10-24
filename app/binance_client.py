@@ -92,10 +92,23 @@ class BinanceSpotService:
         return round(value, precision)
 
     def get_ticker_price(self, symbol: str) -> float:
-        if not self.client:
-            raise Exception("عميل بينانس غير متصل. يرجى إدخال مفاتيح API أولاً.")
-        ticker = self.client.get_symbol_ticker(symbol=symbol.upper())
-        return float(ticker["price"])
+        symbol = symbol.upper()
+        if self.client:
+            try:
+                ticker = self.client.get_symbol_ticker(symbol=symbol)
+                return float(ticker["price"])
+            except Exception:
+                pass
+        
+        # Public Fallback (enables real-time price feed for Demo Mode with 0 API keys)
+        import requests
+        try:
+            res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}", timeout=6)
+            if res.status_code == 200:
+                return float(res.json()["price"])
+        except Exception:
+            pass
+        raise Exception(f"تعذر جلب سعر الزوج {symbol}. تأكد من الاتصال بالإنترنت أو صحة اسم الزوج.")
 
     def get_balances(self) -> Dict[str, Any]:
         if not self.client:
@@ -215,6 +228,52 @@ class BinanceSpotService:
             stopLimitTimeInForce=TIME_IN_FORCE_GTC
         )
         return order
+
+    def place_limit_sell(self, symbol: str, quantity: float, price: float) -> Dict[str, Any]:
+        """
+        تعليق أمر بيع محدد (Limit Sell) مسبقاً عند سعر الهدف فور شراء المستوى
+        """
+        if not self.client:
+            raise Exception("عميل بينانس غير متصل")
+
+        symbol = symbol.upper()
+        filters = self.get_symbol_filters(symbol)
+        adjusted_qty = self.round_step(quantity, filters["step_size"])
+        step_precision = max(0, int(round(-math.log10(filters["step_size"])))) if filters["step_size"] < 1 else 0
+        qty_str = f"{adjusted_qty:.{step_precision}f}"
+
+        tick_precision = max(0, int(round(-math.log10(filters["tick_size"])))) if filters["tick_size"] < 1 else 2
+        price_rounded = self.round_tick(price, filters["tick_size"])
+        price_str = f"{price_rounded:.{tick_precision}f}"
+
+        return self.client.order_limit_sell(
+            symbol=symbol,
+            quantity=qty_str,
+            price=price_str,
+            timeInForce=TIME_IN_FORCE_GTC
+        )
+
+    def cancel_order(self, symbol: str, order_id: int) -> Dict[str, Any]:
+        """
+        إلغاء أمر محدد عبر معرف الطلب (مثال: إلغاء المتبقي من أمر شراء جزئي)
+        """
+        if not self.client:
+            return {}
+        try:
+            return self.client.cancel_order(symbol=symbol.upper(), orderId=order_id)
+        except Exception:
+            return {}
+
+    def get_order(self, symbol: str, order_id: int) -> Optional[Dict[str, Any]]:
+        """
+        جلب حالة أمر محدد لفحص هل نُفّذ جزئياً أم كلياً
+        """
+        if not self.client:
+            return None
+        try:
+            return self.client.get_order(symbol=symbol.upper(), orderId=order_id)
+        except Exception:
+            return None
 
     def cancel_open_orders_for_symbol(self, symbol: str) -> List[Dict[str, Any]]:
         """

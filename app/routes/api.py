@@ -19,6 +19,8 @@ class ZoneGridConfigRequest(BaseModel):
     base_price: Optional[float] = None
     stop_loss_type: str = "TOTAL"
     stop_loss_percent: float = 10.0
+    open_range: bool = True
+    demo_mode: bool = False
 
 class UpdateSettingsRequest(BaseModel):
     binance_api_key: Optional[str] = None
@@ -179,9 +181,13 @@ async def configure_zone_grid(req: ZoneGridConfigRequest):
         zone_step_percent=req.zone_step_percent,
         base_price=base_p,
         stop_loss_type=req.stop_loss_type,
-        stop_loss_percent=req.stop_loss_percent
+        stop_loss_percent=req.stop_loss_percent,
+        open_range=req.open_range,
+        demo_mode=req.demo_mode
     )
-    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث إعدادات شبكة الزونات لزوج {req.symbol} ({req.num_zones} مستويات بمبلغ ${zone_grid_engine.per_zone_capital:.2f} لكل مستوى).")
+    mode_text = "تجريبي (ديمو 10,000$)" if req.demo_mode else "حقيقي (Live Binance)"
+    range_text = "مفتوح (Infinity)" if req.open_range else "مغلق (ثابت)"
+    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث إعدادات شبكة الزونات لزوج {req.symbol} ({req.num_zones} مستويات بمبلغ ${zone_grid_engine.per_zone_capital:.2f} لكل مستوى | الوضع: {mode_text} | النطاق: {range_text}).")
     return zone_grid_engine.get_full_status()
 
 @router.post("/zone-grid/preview")
@@ -194,7 +200,10 @@ async def preview_zone_grid(req: ZoneGridConfigRequest):
             except Exception:
                 base_p = 100.0
         else:
-            base_p = 100.0
+            try:
+                base_p = binance_service.get_ticker_price(req.symbol)
+            except Exception:
+                base_p = 100.0
 
     # Calculate preview levels without modifying active running bot
     step_factor = 1.0 + (req.zone_step_percent / 100.0)
@@ -219,8 +228,25 @@ async def preview_zone_grid(req: ZoneGridConfigRequest):
         "num_zones": req.num_zones,
         "per_zone_capital": per_zone,
         "zone_step_percent": req.zone_step_percent,
+        "open_range": req.open_range,
+        "demo_mode": req.demo_mode,
         "levels": levels
     }
+
+@router.post("/zone-grid/demo-reset")
+async def reset_demo_balance():
+    zone_grid_engine.reset_demo_balance(10000.0)
+    await broadcaster.broadcast("INFO", "🔄 تم إعادة تعيين رصيد الحساب التجريبي الديمو إلى 10,000$ USDT.")
+    return {"status": "success", "demo_balance": zone_grid_engine.demo_balance, "grid": zone_grid_engine.get_full_status()}
+
+@router.post("/zone-grid/demo-toggle")
+async def toggle_demo_mode(req: Request):
+    body = await req.json()
+    enabled = body.get("enabled", True)
+    zone_grid_engine.demo_mode = enabled
+    mode_str = "الحساب التجريبي (ديمو 10,000$)" if enabled else "التداول الحقيقي (Live Binance)"
+    await broadcaster.broadcast("INFO", f"🔀 تم تغيير وضع التداول إلى: {mode_str}")
+    return {"status": "success", "demo_mode": zone_grid_engine.demo_mode, "grid": zone_grid_engine.get_full_status()}
 
 @router.post("/zone-grid/start")
 async def start_zone_grid():

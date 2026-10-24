@@ -157,7 +157,21 @@ const translations = {
         rf4_title: "100% Guaranteed Capital Protection",
         rf4_desc: "With 10 levels at $20 each, total exposure can never exceed $200 under any market crash or fluctuation.",
         zone_levels_table_title: "Live Independent Levels Monitor",
-        zone_no_levels: "Click 'Calculate & Preview Levels' or 'Start Shark Zone Bot' to initialize grid levels."
+        zone_no_levels: "Click 'Calculate & Preview Levels' or 'Start Shark Zone Bot' to initialize grid levels.",
+        zone_stat_mode: "Mode & Wallet",
+        zone_mode_label: "Trading Mode:",
+        zone_mode_demo: "Demo Paper ($10,000 USDT)",
+        zone_mode_live: "Live Binance Spot",
+        demo_balance_label: "Demo Balance:",
+        btn_reset_demo: "Reset $10,000",
+        opt_open_range_title: "🌐 Trailing Infinity Open Range",
+        opt_open_range_desc: "Automatically expands grid upwards without ceiling when price rises.",
+        rf5_title: "Trailing Infinity Open Range",
+        rf5_desc: "No fixed ceiling! If price trends upward continuously, the grid generates new zones automatically and rides the trend with pre-placed limit sells.",
+        rf6_title: "Pre-placed Limit Sell & Partial Fill Safety",
+        rf6_desc: "Limit sell is instantly pre-placed at the next zone. If an order fills partially and price rallies, remaining buy order is cancelled and actual filled amount is sold at target.",
+        demo_reset_success: "Demo wallet reset to $10,000.00 USDT successfully!",
+        demo_mode_changed: "Trading mode switched to: "
     },
     ar: {
         market_predator: "المفترس في أسواق المال",
@@ -310,7 +324,21 @@ const translations = {
         rf4_title: "أمان مطلق لرأس المال",
         rf4_desc: "مع 10 مستويات بـ 20$ لكل مستوى، يستحيل استنزاف أكثر من 200$ تحت أي تقلب أو هبوط عنيف.",
         zone_levels_table_title: "مراقبة المستويات العشرة المباشرة",
-        zone_no_levels: "اضغط على 'معاينة وتوليد المستويات' أو 'بدء تشغيل البوت' لعرض وتفعيل المستويات."
+        zone_no_levels: "اضغط على 'معاينة وتوليد المستويات' أو 'بدء تشغيل البوت' لعرض وتفعيل المستويات.",
+        zone_stat_mode: "وضع التداول والمحفظة",
+        zone_mode_label: "وضع التداول:",
+        zone_mode_demo: "حساب تجريبي ديمو (10,000$ USDT)",
+        zone_mode_live: "حقيقي (Live Binance Spot)",
+        demo_balance_label: "رصيد الديمو:",
+        btn_reset_demo: "إعادة ضبط 10,000$",
+        opt_open_range_title: "🌐 النطاق المفتوح المتحرك (Trailing Infinity)",
+        opt_open_range_desc: "توليد مستويات جديدة للأعلى تلقائياً عند صعود السعر دون سقف محدد لجني أرباح مستمرة.",
+        rf5_title: "النطاق المفتوح والامتداد اللانهائي",
+        rf5_desc: "بدون سقف مغلق! عندما يصعد السعر باستمرار يتم توليد مستويات 11 و12 تلقائياً لملاحقة الصعود وتعليق أوامر البيع.",
+        rf6_title: "تعليق أمر البيع وإلغاء المتبقي عند التنفيذ الجزئي",
+        rf6_desc: "بمجرد الشراء يُعلق فوراً أمر بيع ليمت عند المستوى الموالي، وإذا نُفذ الشراء جزئياً وصعد السعر يُلغى المتبقي ويباع المنفذ فقط.",
+        demo_reset_success: "تم إعادة تعيين رصيد الحساب التجريبي إلى 10,000.00$ USDT بنجاح!",
+        demo_mode_changed: "تم تغيير وضع التداول إلى: "
     }
 };
 
@@ -975,6 +1003,8 @@ function escapeHtml(str) {
 // SHARK INDEPENDENT ZONE GRID CLIENT FUNCTIONS
 // ==============================================================================
 
+let isZgDemoMode = true; // default demo active
+
 function toggleBlueprintModal() {
     const box = document.getElementById("blueprintContainer");
     if (!box) return;
@@ -993,11 +1023,43 @@ function updateZgCalcPreview() {
     if (calcMaxOrdersEl) calcMaxOrdersEl.textContent = `${numZones} Orders Max`;
 }
 
+async function setZgDemoMode(isDemo) {
+    isZgDemoMode = isDemo;
+    const demoBtn = document.getElementById("zgModeDemoBtn");
+    const liveBtn = document.getElementById("zgModeLiveBtn");
+    const demoActions = document.getElementById("demoActionsGroup");
+
+    if (demoBtn) demoBtn.classList.toggle("active", isDemo);
+    if (liveBtn) liveBtn.classList.toggle("active", !isDemo);
+    if (demoActions) demoActions.style.display = isDemo ? "flex" : "none";
+
+    try {
+        await fetch("/api/zone-grid/demo-toggle", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: isDemo })
+        });
+        fetchZgStatus();
+    } catch (e) {
+        console.error("Error setting demo mode:", e);
+    }
+}
+
+async function resetDemoBalance() {
+    try {
+        const res = await fetch("/api/zone-grid/demo-reset", { method: "POST" });
+        const data = await res.json();
+        const dict = translations[currentLanguage] || translations.en;
+        alert(dict.demo_reset_success || "Demo wallet reset to $10,000.00 USDT successfully!");
+        fetchZgStatus();
+    } catch (e) {
+        console.error("Error resetting demo balance:", e);
+    }
+}
+
 async function fetchLiveZgPrice() {
     const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
     try {
-        const res = await fetch("/api/balances");
-        // Or get from ticker endpoint / preview
         const previewRes = await fetch("/api/zone-grid/preview", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1006,7 +1068,9 @@ async function fetchLiveZgPrice() {
                 total_capital: parseFloat(document.getElementById("zgTotalCapital")?.value) || 200,
                 num_zones: parseInt(document.getElementById("zgNumZones")?.value) || 10,
                 zone_step_percent: parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0,
-                base_price: 0
+                base_price: 0,
+                open_range: document.getElementById("zgOpenRange")?.checked ?? true,
+                demo_mode: isZgDemoMode
             })
         });
         const data = await previewRes.json();
@@ -1033,6 +1097,7 @@ async function previewZoneGrid() {
     const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
     const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
     const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
+    const openRange = document.getElementById("zgOpenRange")?.checked ?? true;
 
     try {
         const res = await fetch("/api/zone-grid/preview", {
@@ -1043,7 +1108,9 @@ async function previewZoneGrid() {
                 total_capital: totalCap,
                 num_zones: numZones,
                 zone_step_percent: stepPct,
-                base_price: baseP > 0 ? baseP : null
+                base_price: baseP > 0 ? baseP : null,
+                open_range: openRange,
+                demo_mode: isZgDemoMode
             })
         });
         const data = await res.json();
@@ -1066,6 +1133,8 @@ async function fetchZgStatus() {
         const statPerZone = document.getElementById("zgStatPerZoneCap");
         const statActive = document.getElementById("zgStatActiveTrades");
         const statPnl = document.getElementById("zgStatPnl");
+        const statModeBal = document.getElementById("zgStatModeBalance");
+        const demoBalanceText = document.getElementById("zgDemoBalanceText");
 
         if (statTotal) statTotal.textContent = `$${data.total_capital.toFixed(2)}`;
         if (statPerZone) statPerZone.textContent = `$${data.per_zone_capital.toFixed(2)} / Trade`;
@@ -1076,6 +1145,36 @@ async function fetchZgStatus() {
             statPnl.className = `stat-value ${pnl >= 0 ? 'text-emerald' : 'text-danger'}`;
         }
 
+        // Demo vs Live Mode UI sync
+        isZgDemoMode = Boolean(data.demo_mode);
+        const demoBtn = document.getElementById("zgModeDemoBtn");
+        const liveBtn = document.getElementById("zgModeLiveBtn");
+        const demoActions = document.getElementById("demoActionsGroup");
+
+        if (demoBtn) demoBtn.classList.toggle("active", isZgDemoMode);
+        if (liveBtn) liveBtn.classList.toggle("active", !isZgDemoMode);
+        if (demoActions) demoActions.style.display = isZgDemoMode ? "flex" : "none";
+
+        if (demoBalanceText) {
+            demoBalanceText.textContent = `$${(data.demo_balance || 10000.0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} USDT`;
+        }
+
+        if (statModeBal) {
+            if (isZgDemoMode) {
+                statModeBal.textContent = `🎮 Demo $${(data.demo_balance || 10000.0).toFixed(0)}`;
+                statModeBal.className = "stat-value text-emerald";
+            } else {
+                statModeBal.textContent = "⚡ Live Binance";
+                statModeBal.className = "stat-value text-orange";
+            }
+        }
+
+        // Open Range Sync
+        const openRangeEl = document.getElementById("zgOpenRange");
+        if (openRangeEl && data.open_range !== undefined && !openRangeEl.dataset.userToggled) {
+            openRangeEl.checked = Boolean(data.open_range);
+        }
+
         // Update engine status badge
         const badgeEl = document.getElementById("zgEngineStatusBadge");
         const badgeText = document.getElementById("zgEngineStatusText");
@@ -1084,7 +1183,8 @@ async function fetchZgStatus() {
 
         if (data.is_running) {
             if (badgeEl) badgeEl.className = "status-badge badge-online";
-            if (badgeText) badgeText.textContent = currentLanguage === "ar" ? "البوت: نشط يعمل ✅" : "Bot: Running ✅";
+            const modeLabel = isZgDemoMode ? "(Demo)" : "(Live)";
+            if (badgeText) badgeText.textContent = (currentLanguage === "ar" ? "البوت: نشط يعمل ✅ " : "Bot: Running ✅ ") + modeLabel;
             if (startBtn) startBtn.style.display = "none";
             if (stopBtn) stopBtn.style.display = "inline-flex";
         } else {
@@ -1123,22 +1223,36 @@ function renderZgLevels(levels, isRunning) {
     let html = "";
     sorted.forEach(lvl => {
         const isHolding = lvl.is_holding;
-        const statusBadge = isHolding
-            ? `<span class="level-badge-holding"><i class="fa-solid fa-cube"></i> ${currentLanguage === 'ar' ? 'مشغول بصفقة' : 'HOLDING'}</span>`
-            : `<span class="level-badge-idle"><i class="fa-regular fa-circle"></i> ${currentLanguage === 'ar' ? 'متاح للطلب' : 'IDLE / FREE'}</span>`;
+        let statusBadge = "";
 
-        const lockBadge = isHolding
-            ? `<span class="lock-pill-locked"><i class="fa-solid fa-lock"></i> ${currentLanguage === 'ar' ? 'مقفول (ممنوع التكرار)' : 'LOCKED 🔒'}</span>`
-            : `<span class="lock-pill-unlocked"><i class="fa-solid fa-lock-open"></i> ${currentLanguage === 'ar' ? 'جاهز للشراء' : 'UNLOCKED 🔓'}</span>`;
+        if (isHolding) {
+            if (lvl.is_partial) {
+                statusBadge = `<span class="level-badge-partial"><i class="fa-solid fa-triangle-exclamation"></i> ${currentLanguage === 'ar' ? 'تنفيذ جزئي' : 'PARTIAL'}</span>`;
+            } else {
+                statusBadge = `<span class="level-badge-holding"><i class="fa-solid fa-cube"></i> ${currentLanguage === 'ar' ? 'مشغول بصفقة' : 'HOLDING'}</span>`;
+            }
+        } else {
+            statusBadge = `<span class="level-badge-idle"><i class="fa-regular fa-circle"></i> ${currentLanguage === 'ar' ? 'متاح للطلب' : 'IDLE / FREE'}</span>`;
+        }
+
+        let lockBadge = "";
+        if (isHolding) {
+            lockBadge = `<div><span class="lock-pill-locked"><i class="fa-solid fa-lock"></i> ${currentLanguage === 'ar' ? 'مقفول (صفقة جارية)' : 'LOCKED 🔒'}</span></div>`;
+            if (lvl.sell_order_id || isRunning) {
+                lockBadge += `<span class="badge-order-limit"><i class="fa-solid fa-crosshairs"></i> ${currentLanguage === 'ar' ? 'أمر بيع معلق' : 'Sell Pre-placed'}</span>`;
+            }
+        } else {
+            lockBadge = `<span class="lock-pill-unlocked"><i class="fa-solid fa-lock-open"></i> ${currentLanguage === 'ar' ? 'جاهز للشراء' : 'UNLOCKED 🔓'}</span>`;
+        }
 
         const pnl = lvl.current_pnl || 0.0;
         const pnlPct = lvl.current_pnl_pct || 0.0;
         const pnlHtml = isHolding
-            ? `<span class="${pnl >= 0 ? 'text-emerald' : 'text-danger'} font-mono">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>`
+            ? `<span class="${pnl >= 0 ? 'text-emerald' : 'text-danger'} font-mono font-bold">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>`
             : `<span class="text-muted">-</span>`;
 
         const qtyHtml = isHolding && lvl.bought_qty > 0
-            ? `<span class="font-mono text-cyan">${lvl.bought_qty.toFixed(6)}</span>`
+            ? `<span class="font-mono text-cyan font-bold">${lvl.bought_qty.toFixed(6)}</span>`
             : `<span class="text-muted">-</span>`;
 
         const entryHtml = isHolding && lvl.buy_price > 0
@@ -1151,7 +1265,7 @@ function renderZgLevels(levels, isRunning) {
             <tr class="${isHolding ? 'row-holding-active' : ''}">
                 <td class="font-bold text-cyan">Level ${String(lvl.index).padStart(2, '0')}</td>
                 <td class="font-mono font-bold">$${lvl.price.toFixed(4)}</td>
-                <td class="font-mono text-emerald">$${lvl.target_price.toFixed(4)} <small class="text-muted">(+1%)</small></td>
+                <td class="font-mono text-emerald font-bold">$${lvl.target_price.toFixed(4)} <small class="text-muted">(+1%)</small></td>
                 <td class="font-mono">$${capitalVal.toFixed(2)}</td>
                 <td>${statusBadge}</td>
                 <td>${qtyHtml}</td>
@@ -1173,9 +1287,10 @@ async function startZoneGrid() {
     const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
     const slType = document.getElementById("zgSlType")?.value || "TOTAL";
     const slPct = parseFloat(document.getElementById("zgSlPercent")?.value) || 10.0;
+    const openRange = document.getElementById("zgOpenRange")?.checked ?? true;
 
     try {
-        // 1. Configure
+        // 1. Configure with open range & demo mode
         await fetch("/api/zone-grid/configure", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1186,7 +1301,9 @@ async function startZoneGrid() {
                 zone_step_percent: stepPct,
                 base_price: baseP > 0 ? baseP : null,
                 stop_loss_type: slType,
-                stop_loss_percent: slPct
+                stop_loss_percent: slPct,
+                open_range: openRange,
+                demo_mode: isZgDemoMode
             })
         });
 
@@ -1195,7 +1312,10 @@ async function startZoneGrid() {
         const startData = await startRes.json();
 
         if (startRes.ok) {
-            alert(currentLanguage === "ar" ? "تم تشغيل بوت الزونات الذكية بنجاح! 🚀" : "Shark Zone Grid started successfully! 🚀");
+            const modeText = isZgDemoMode
+                ? (currentLanguage === "ar" ? "في وضع الحساب التجريبي (ديمو 10,000$)" : "in Demo Paper Trading Mode ($10,000)")
+                : (currentLanguage === "ar" ? "في وضع التداول الحقيقي (Live Binance)" : "in Live Binance Spot Mode");
+            alert((currentLanguage === "ar" ? "تم تشغيل بوت الزونات بنجاح! 🚀 " : "Shark Zone Grid started successfully! 🚀 ") + modeText);
             fetchZgStatus();
         } else {
             alert(`Error: ${startData.detail || startData.message}`);

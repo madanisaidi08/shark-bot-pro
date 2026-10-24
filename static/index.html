@@ -496,6 +496,29 @@ if (sellCondition)
                         </div>
                     </div>
 
+                    <!-- Zone Mode Bar (Demo $10,000 vs Live Binance) -->
+                    <div class="zone-mode-bar">
+                        <div class="mode-toggle-group">
+                            <span class="mode-switch-label" data-i18n="zone_mode_label">Trading Mode:</span>
+                            <button type="button" id="zgModeDemoBtn" class="mode-select-btn active mode-demo" onclick="setZgDemoMode(true)">
+                                <i class="fa-solid fa-gamepad"></i> <span data-i18n="zone_mode_demo">Demo Paper Trading ($10,000 USDT)</span>
+                            </button>
+                            <button type="button" id="zgModeLiveBtn" class="mode-select-btn mode-live" onclick="setZgDemoMode(false)">
+                                <i class="fa-solid fa-bolt"></i> <span data-i18n="zone_mode_live">Live Binance Spot</span>
+                            </button>
+                        </div>
+                        <div class="demo-actions-group" id="demoActionsGroup">
+                            <span class="demo-balance-badge">
+                                <i class="fa-solid fa-sack-dollar text-emerald"></i>
+                                <span data-i18n="demo_balance_label">Demo Balance:</span>
+                                <strong id="zgDemoBalanceText" class="text-emerald font-mono">$10,000.00 USDT</strong>
+                            </span>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="resetDemoBalance()" title="Reset Demo Balance to $10,000">
+                                <i class="fa-solid fa-rotate-left"></i> <span data-i18n="btn_reset_demo">Reset $10,000</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Live Grid Stats Bar -->
                     <div class="stats-bar">
                         <div class="stat-card">
@@ -527,6 +550,14 @@ if (sellCondition)
                             <div class="stat-content">
                                 <span class="stat-label" data-i18n="zone_stat_pnl">Unrealized PnL</span>
                                 <span class="stat-value" id="zgStatPnl">$0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-cyan-dim"><i class="fa-solid fa-wallet text-cyan"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="zone_stat_mode">Mode & Wallet</span>
+                                <span class="stat-value text-cyan" id="zgStatModeBalance">🎮 Demo $10,000</span>
                             </div>
                         </div>
                     </div>
@@ -598,6 +629,17 @@ if (sellCondition)
                                     </div>
                                 </div>
 
+                                <!-- Trailing Infinity Open Range Switch -->
+                                <div class="checkbox-feature-box">
+                                    <label class="custom-checkbox-container">
+                                        <input type="checkbox" id="zgOpenRange" checked>
+                                        <span class="checkbox-label-content">
+                                            <strong data-i18n="opt_open_range_title">🌐 Trailing Infinity Open Range (النطاق المفتوح المتحرك)</strong>
+                                            <small class="text-muted d-block" data-i18n="opt_open_range_desc">When price breaks above Level 10, automatically generate Level 11, 12... upwards without ceiling limits.</small>
+                                        </span>
+                                    </label>
+                                </div>
+
                                 <!-- Stop Loss Settings -->
                                 <div class="form-group">
                                     <label for="zgSlType" data-i18n="zone_sl_type_label">Stop Loss Strategy</label>
@@ -662,11 +704,27 @@ if (sellCondition)
                                     </div>
                                 </div>
 
-                                <div class="rule-feature-box">
+                                <div class="rule-feature-box mb-12">
                                     <div class="rf-icon text-purple"><i class="fa-solid fa-coins"></i></div>
                                     <div class="rf-text">
                                         <h4 data-i18n="rf4_title">100% Guaranteed Capital Protection (أمان رأس المال)</h4>
                                         <p data-i18n="rf4_desc">With 10 levels at $20 each, total exposure can never exceed $200 under any market crash or fluctuation.</p>
+                                    </div>
+                                </div>
+
+                                <div class="rule-feature-box mb-12">
+                                    <div class="rf-icon text-cyan"><i class="fa-solid fa-infinity"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf5_title">Trailing Infinity Open Range (نطاق مفتوح لا نهائي)</h4>
+                                        <p data-i18n="rf5_desc">No fixed ceiling! If price trends upward continuously, the grid generates new zones automatically and rides the trend with pre-placed limit sells.</p>
+                                    </div>
+                                </div>
+
+                                <div class="rule-feature-box">
+                                    <div class="rf-icon text-emerald"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf6_title">Pre-placed Limit Sell & Partial Fill Safety (تعليق أمر البيع وإلغاء المتبقي)</h4>
+                                        <p data-i18n="rf6_desc">Limit sell is instantly pre-placed at the next zone. If an order fills partially and price rallies, remaining buy order is cancelled and actual filled amount is sold at target.</p>
                                     </div>
                                 </div>
                             </div>

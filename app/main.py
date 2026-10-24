@@ -21,6 +21,13 @@ async def lifespan(app: FastAPI):
     if binance_service.is_connected():
         mode = "تجريبي (Testnet)" if settings.use_testnet else "حقيقي (Live)"
         await broadcaster.broadcast("SUCCESS", f"✅ تم الاتصال ببينانس بنجاح! النمط الحالي: {mode}")
+        from app.zone_grid_engine import zone_grid_engine
+        if zone_grid_engine.is_running:
+            try:
+                await zone_grid_engine.start()
+                await broadcaster.broadcast("INFO", "🔄 تم استئناف تشغيل Shark Zone Grid تلقائياً.")
+            except Exception as e:
+                await broadcaster.broadcast("WARNING", f"تعذر استئناف تشغيل بوت الزونات: {str(e)}")
     else:
         await broadcaster.broadcast("WARNING", "⚠️ مفاتيح بينانس غير مدخلة أو غير متصلة. يرجى إدخالها من لوحة الإعدادات.")
     yield

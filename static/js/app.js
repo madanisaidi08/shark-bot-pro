@@ -117,7 +117,47 @@ const translations = {
         guide_q2: "2. What is an OCO Order?",
         guide_a2: "OCO stands for \"One-Cancels-the-Other\". It places both your Target Profit order and your Stop Loss order at the same time. If the price hits your target, profit is taken and the stop loss is automatically removed. Your funds are protected 24/7 without needing you to watch the screen.",
         guide_q3: "3. How does balance synchronization work?",
-        guide_a3: "Whenever you enter or exit a trade, Shark Bot immediately queries Binance and broadcasts your fresh USDT and asset balance via WebSocket. You can also click the \"Refresh Now\" button at any time to instantly update."
+        guide_a3: "Whenever you enter or exit a trade, Shark Bot immediately queries Binance and broadcasts your fresh USDT and asset balance via WebSocket. You can also click the \"Refresh Now\" button at any time to instantly update.",
+        nav_zone_grid: "Shark Zone Grid",
+        zone_grid_subtitle: "Independent Cascading Levels Grid with Dual Execution",
+        zone_bot_badge: "SHARK SMART-ZONE MESH ENGINE",
+        zone_hero_title: "Shark Independent Zone Grid",
+        zone_hero_desc: "Divide capital equally across 10 independent levels. On rise: sell previous + buy current. On drop: sequential single-buy. Never re-buys a holding level until closed.",
+        btn_view_blueprint: "View Architectural Diagram",
+        blueprint_title: "System Architecture & Execution Flowchart",
+        zone_stat_total: "Total Capital",
+        zone_stat_per_zone: "Per Zone Capital",
+        zone_stat_active: "Active Positions",
+        zone_stat_pnl: "Unrealized PnL",
+        zone_config_title: "Zone Grid Parameters & Capital",
+        zone_symbol_label: "Trading Symbol (Pair)",
+        btn_fetch_price: "Fetch Price",
+        zone_total_capital_label: "Total Capital ($ USDT)",
+        zone_num_zones_label: "Number of Levels / Zones",
+        zone_step_label: "Distance Between Levels (%)",
+        zone_base_price_label: "Base Starting Price ($)",
+        zone_calc_per_zone: "Capital per Level:",
+        zone_calc_max_orders: "Max Concurrent Orders:",
+        zone_sl_type_label: "Stop Loss Strategy",
+        opt_sl_total: "Option A: Total Portfolio SL (-10% of total capital)",
+        opt_sl_per_zone: "Option B: Per-Zone Independent SL (-10% from entry price per level)",
+        opt_sl_none: "Disabled / No Stop Loss",
+        zone_sl_percent_label: "Stop Loss Percentage (%)",
+        btn_preview_levels: "Calculate & Preview Levels",
+        btn_start_zone_bot: "Start Shark Zone Bot",
+        btn_pause_zone_bot: "Pause Bot",
+        btn_emergency_close: "Emergency Close All",
+        zone_rules_title: "How This Engine Protects & Trades",
+        rf1_title: "Dual Action On Rise",
+        rf1_desc: "When price hits Level K, it sells Level K-1 for profit (+1%), and simultaneously buys Level K with target Level K+1.",
+        rf2_title: "Sequential Single-Buy On Retrace",
+        rf2_desc: "When price drops from 10 to 9, it buys Level 9 (because it was freed previously). If it falls to 8, it buys Level 8.",
+        rf3_title: "Strict One-Shot Rule",
+        rf3_desc: "If price oscillates around Level 1, it will NEVER buy twice from Level 1 until that trade is sold at profit or stopped out.",
+        rf4_title: "100% Guaranteed Capital Protection",
+        rf4_desc: "With 10 levels at $20 each, total exposure can never exceed $200 under any market crash or fluctuation.",
+        zone_levels_table_title: "Live Independent Levels Monitor",
+        zone_no_levels: "Click 'Calculate & Preview Levels' or 'Start Shark Zone Bot' to initialize grid levels."
     },
     ar: {
         market_predator: "المفترس في أسواق المال",
@@ -230,7 +270,47 @@ const translations = {
         guide_q2: "2. ما هو أمر OCO؟",
         guide_a2: "هو أمر (أمر يلغي الآخر) معتمد رسمياً في بينانس، يضع هدف الربح ووقف الخسارة في وقت واحد. إذا تحقق الهدف تُباع العملة بربح ويُلغى وقف الخسارة تلقائياً، لحماية رأس مالك دون الحاجة لمتابعة الشاشة.",
         guide_q3: "3. كيف يعمل تحديث الرصيد السريع؟",
-        guide_a3: "بمجرد دخول أو خروج البوت من أي صفقة، يستعلم فوراً عن رصيد USDT الجديد ويبثه عبر الـ WebSocket في أجزاء من الثانية، لتكون أموالك جاهزة للصفقة القادمة."
+        guide_a3: "بمجرد دخول أو خروج البوت من أي صفقة، يستعلم فوراً عن رصيد USDT الجديد ويبثه عبر الـ WebSocket في أجزاء من الثانية، لتكون أموالك جاهزة للصفقة القادمة.",
+        nav_zone_grid: "بوت الزونات المستقلة",
+        zone_grid_subtitle: "شبكة المستويات المستقلة والمتسلسلة بأمر مزدوج بالصعود وشراء متسلسل بالهبوط",
+        zone_bot_badge: "محرك شبكة الزونات الذكية",
+        zone_hero_title: "Shark Independent Zone Grid (شبكة الزونات المستقلة)",
+        zone_hero_desc: "تقسيم رأس المال بالتساوي على 10 مستويات مستقلة. عند الصعود: بيع السابق وشراء الحالي. عند الهبوط: شراء متسلسل لمرة واحدة. ممنوع تكرار الشراء حتى إغلاق الصفقة.",
+        btn_view_blueprint: "عرض المخطط الهندسي التوضيحي",
+        blueprint_title: "المخطط المعماري وخريطة التدفق البرمجي",
+        zone_stat_total: "رأس المال الإجمالي",
+        zone_stat_per_zone: "مخصص كل مستوى",
+        zone_stat_active: "الصفقات المفتوحة",
+        zone_stat_pnl: "الربح / الخسارة غير المحققة",
+        zone_config_title: "إعدادات رأس المال والزونات",
+        zone_symbol_label: "زوج التداول",
+        btn_fetch_price: "جلب السعر الحي",
+        zone_total_capital_label: "رأس المال المخصص ($ USDT)",
+        zone_num_zones_label: "عدد المستويات (الزونات)",
+        zone_step_label: "الفارق بين الخطوط (%)",
+        zone_base_price_label: "سعر خط البداية (0 = سعر السوق)",
+        zone_calc_per_zone: "المبلغ المخصص لكل مستوى:",
+        zone_calc_max_orders: "أقصى صفقات مفتوحة معاً:",
+        zone_sl_type_label: "استراتيجية وقف الخسارة",
+        opt_sl_total: "الخيار A: وقف خسارة كلي للمحفظة (-10% من إجمالي رأس المال)",
+        opt_sl_per_zone: "الخيار B: وقف خسارة جزئي (لكل مستوى على حدة)",
+        opt_sl_none: "معطل / بدون وقف خسارة",
+        zone_sl_percent_label: "نسبة وقف الخسارة (%)",
+        btn_preview_levels: "معاينة وتوليد المستويات",
+        btn_start_zone_bot: "بدء تشغيل بوت الزونات",
+        btn_pause_zone_bot: "إيقاف مؤقت للبوت",
+        btn_emergency_close: "إغلاق طارئ لجميع الصفقات",
+        zone_rules_title: "آلية عمل المحرك والحماية التامة",
+        rf1_title: "أمران متزامنان عند الصعود",
+        rf1_desc: "عند لمس المستوى K، يبيع ما اشتراه من K-1 بربح (+1%)، ويشتري فوراً من K بهدف K+1.",
+        rf2_title: "شراء متسلسل بالهبوط",
+        rf2_desc: "عند تراجع السعر من 10 إلى 9 يشتري من 9 لكونه تحرر مسبقاً، وإذا واصل الهبوط إلى 8 يشتري من 8.",
+        rf3_title: "قاعدة تجميد المستوى ومنع التكرار",
+        rf3_desc: "إذا تذبذب السعر عند مستوى 1، يستحيل الشراء منه ثانية حتى يبيع صفقته السابقة بربح أو وقف.",
+        rf4_title: "أمان مطلق لرأس المال",
+        rf4_desc: "مع 10 مستويات بـ 20$ لكل مستوى، يستحيل استنزاف أكثر من 200$ تحت أي تقلب أو هبوط عنيف.",
+        zone_levels_table_title: "مراقبة المستويات العشرة المباشرة",
+        zone_no_levels: "اضغط على 'معاينة وتوليد المستويات' أو 'بدء تشغيل البوت' لعرض وتفعيل المستويات."
     }
 };
 
@@ -276,6 +356,10 @@ function switchView(viewName) {
     // Load TradingView chart when switching to terminal view
     if (viewName === "terminal") {
         setTimeout(() => loadTradingViewChart(currentChartSymbol), 100);
+    }
+
+    if (viewName === "zone-grid") {
+        fetchZgStatus();
     }
 
     // Close mobile sidebar if open
@@ -885,4 +969,269 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// ==============================================================================
+// SHARK INDEPENDENT ZONE GRID CLIENT FUNCTIONS
+// ==============================================================================
+
+function toggleBlueprintModal() {
+    const box = document.getElementById("blueprintContainer");
+    if (!box) return;
+    box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
+}
+
+function updateZgCalcPreview() {
+    const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
+    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
+    const perZone = numZones > 0 ? (totalCap / numZones).toFixed(2) : "0.00";
+
+    const calcPerLevelEl = document.getElementById("zgCalcPerLevel");
+    const calcMaxOrdersEl = document.getElementById("zgCalcMaxOrders");
+
+    if (calcPerLevelEl) calcPerLevelEl.textContent = `$${perZone} / Level`;
+    if (calcMaxOrdersEl) calcMaxOrdersEl.textContent = `${numZones} Orders Max`;
+}
+
+async function fetchLiveZgPrice() {
+    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    try {
+        const res = await fetch("/api/balances");
+        // Or get from ticker endpoint / preview
+        const previewRes = await fetch("/api/zone-grid/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                symbol: symbol,
+                total_capital: parseFloat(document.getElementById("zgTotalCapital")?.value) || 200,
+                num_zones: parseInt(document.getElementById("zgNumZones")?.value) || 10,
+                zone_step_percent: parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0,
+                base_price: 0
+            })
+        });
+        const data = await previewRes.json();
+        if (data.base_price) {
+            document.getElementById("zgBasePrice").value = data.base_price;
+            renderZgLevels(data.levels, false);
+        }
+    } catch (e) {
+        console.error("Error fetching live price:", e);
+    }
+}
+
+function setZgPair(symbol, btn) {
+    document.querySelectorAll(".quick-pair-buttons .pair-pill").forEach(p => p.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    const input = document.getElementById("zgSymbol");
+    if (input) input.value = symbol;
+    fetchLiveZgPrice();
+}
+
+async function previewZoneGrid() {
+    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
+    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
+    const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
+    const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
+
+    try {
+        const res = await fetch("/api/zone-grid/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                symbol: symbol,
+                total_capital: totalCap,
+                num_zones: numZones,
+                zone_step_percent: stepPct,
+                base_price: baseP > 0 ? baseP : null
+            })
+        });
+        const data = await res.json();
+        if (data.base_price && (!baseP || baseP === 0)) {
+            document.getElementById("zgBasePrice").value = data.base_price;
+        }
+        renderZgLevels(data.levels, false);
+    } catch (e) {
+        console.error("Error previewing grid:", e);
+    }
+}
+
+async function fetchZgStatus() {
+    try {
+        const res = await fetch("/api/zone-grid/status");
+        const data = await res.json();
+
+        // Update stats
+        const statTotal = document.getElementById("zgStatTotalCap");
+        const statPerZone = document.getElementById("zgStatPerZoneCap");
+        const statActive = document.getElementById("zgStatActiveTrades");
+        const statPnl = document.getElementById("zgStatPnl");
+
+        if (statTotal) statTotal.textContent = `$${data.total_capital.toFixed(2)}`;
+        if (statPerZone) statPerZone.textContent = `$${data.per_zone_capital.toFixed(2)} / Trade`;
+        if (statActive) statActive.textContent = `${data.active_trades_count} / ${data.num_zones} Active`;
+        if (statPnl) {
+            const pnl = data.unrealized_pnl || 0.0;
+            statPnl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            statPnl.className = `stat-value ${pnl >= 0 ? 'text-emerald' : 'text-danger'}`;
+        }
+
+        // Update engine status badge
+        const badgeEl = document.getElementById("zgEngineStatusBadge");
+        const badgeText = document.getElementById("zgEngineStatusText");
+        const startBtn = document.getElementById("zgStartBtn");
+        const stopBtn = document.getElementById("zgStopBtn");
+
+        if (data.is_running) {
+            if (badgeEl) badgeEl.className = "status-badge badge-online";
+            if (badgeText) badgeText.textContent = currentLanguage === "ar" ? "البوت: نشط يعمل ✅" : "Bot: Running ✅";
+            if (startBtn) startBtn.style.display = "none";
+            if (stopBtn) stopBtn.style.display = "inline-flex";
+        } else {
+            if (badgeEl) badgeEl.className = "status-badge badge-offline";
+            if (badgeText) badgeText.textContent = currentLanguage === "ar" ? "البوت: متوقف" : "Bot: Stopped";
+            if (startBtn) startBtn.style.display = "inline-flex";
+            if (stopBtn) stopBtn.style.display = "none";
+        }
+
+        // Fill form fields if empty or first load
+        const symInput = document.getElementById("zgSymbol");
+        if (symInput && data.symbol && !symInput.dataset.userEdited) symInput.value = data.symbol;
+
+        // Render levels table
+        if (data.levels && data.levels.length > 0) {
+            renderZgLevels(data.levels, data.is_running);
+        }
+    } catch (e) {
+        console.error("Error fetching Zone Grid status:", e);
+    }
+}
+
+function renderZgLevels(levels, isRunning) {
+    const tbody = document.getElementById("zgLevelsTableBody");
+    if (!tbody) return;
+
+    if (!levels || levels.length === 0) {
+        const dict = translations[currentLanguage] || translations.en;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">${dict.zone_no_levels}</td></tr>`;
+        return;
+    }
+
+    // Sort descending: Level 10 down to Level 01 (matching financial chart order)
+    const sorted = [...levels].sort((a, b) => b.index - a.index);
+
+    let html = "";
+    sorted.forEach(lvl => {
+        const isHolding = lvl.is_holding;
+        const statusBadge = isHolding
+            ? `<span class="level-badge-holding"><i class="fa-solid fa-cube"></i> ${currentLanguage === 'ar' ? 'مشغول بصفقة' : 'HOLDING'}</span>`
+            : `<span class="level-badge-idle"><i class="fa-regular fa-circle"></i> ${currentLanguage === 'ar' ? 'متاح للطلب' : 'IDLE / FREE'}</span>`;
+
+        const lockBadge = isHolding
+            ? `<span class="lock-pill-locked"><i class="fa-solid fa-lock"></i> ${currentLanguage === 'ar' ? 'مقفول (ممنوع التكرار)' : 'LOCKED 🔒'}</span>`
+            : `<span class="lock-pill-unlocked"><i class="fa-solid fa-lock-open"></i> ${currentLanguage === 'ar' ? 'جاهز للشراء' : 'UNLOCKED 🔓'}</span>`;
+
+        const pnl = lvl.current_pnl || 0.0;
+        const pnlPct = lvl.current_pnl_pct || 0.0;
+        const pnlHtml = isHolding
+            ? `<span class="${pnl >= 0 ? 'text-emerald' : 'text-danger'} font-mono">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>`
+            : `<span class="text-muted">-</span>`;
+
+        const qtyHtml = isHolding && lvl.bought_qty > 0
+            ? `<span class="font-mono text-cyan">${lvl.bought_qty.toFixed(6)}</span>`
+            : `<span class="text-muted">-</span>`;
+
+        const entryHtml = isHolding && lvl.buy_price > 0
+            ? `<span class="font-mono">$${lvl.buy_price.toFixed(4)}</span>`
+            : `<span class="text-muted">-</span>`;
+
+        const capitalVal = lvl.capital || lvl.total_cost || 20.0;
+
+        html += `
+            <tr class="${isHolding ? 'row-holding-active' : ''}">
+                <td class="font-bold text-cyan">Level ${String(lvl.index).padStart(2, '0')}</td>
+                <td class="font-mono font-bold">$${lvl.price.toFixed(4)}</td>
+                <td class="font-mono text-emerald">$${lvl.target_price.toFixed(4)} <small class="text-muted">(+1%)</small></td>
+                <td class="font-mono">$${capitalVal.toFixed(2)}</td>
+                <td>${statusBadge}</td>
+                <td>${qtyHtml}</td>
+                <td>${entryHtml}</td>
+                <td>${pnlHtml}</td>
+                <td>${lockBadge}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+async function startZoneGrid() {
+    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
+    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
+    const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
+    const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
+    const slType = document.getElementById("zgSlType")?.value || "TOTAL";
+    const slPct = parseFloat(document.getElementById("zgSlPercent")?.value) || 10.0;
+
+    try {
+        // 1. Configure
+        await fetch("/api/zone-grid/configure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                symbol: symbol,
+                total_capital: totalCap,
+                num_zones: numZones,
+                zone_step_percent: stepPct,
+                base_price: baseP > 0 ? baseP : null,
+                stop_loss_type: slType,
+                stop_loss_percent: slPct
+            })
+        });
+
+        // 2. Start
+        const startRes = await fetch("/api/zone-grid/start", { method: "POST" });
+        const startData = await startRes.json();
+
+        if (startRes.ok) {
+            alert(currentLanguage === "ar" ? "تم تشغيل بوت الزونات الذكية بنجاح! 🚀" : "Shark Zone Grid started successfully! 🚀");
+            fetchZgStatus();
+        } else {
+            alert(`Error: ${startData.detail || startData.message}`);
+        }
+    } catch (e) {
+        console.error("Error starting Zone Grid:", e);
+        alert("Failed to start Zone Grid: " + e.message);
+    }
+}
+
+async function stopZoneGrid() {
+    try {
+        const res = await fetch("/api/zone-grid/stop", { method: "POST" });
+        const data = await res.json();
+        alert(currentLanguage === "ar" ? "تم إيقاف بوت الزونات مؤقتاً." : "Shark Zone Grid has been paused.");
+        fetchZgStatus();
+    } catch (e) {
+        console.error("Error stopping Zone Grid:", e);
+    }
+}
+
+async function emergencyCloseZoneGrid() {
+    const confirmMsg = currentLanguage === "ar"
+        ? "تحذير: هل أنت متأكد من تفعيل الإغلاق الطارئ؟ سيتم بيع جميع صفقات الزونات المفتوحة فوراً بطلب سوق وإيقاف البوت."
+        : "CAUTION: Are you sure you want to execute Emergency Close All? This will immediately market-sell all holding positions across all zones and halt the bot.";
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        const res = await fetch("/api/zone-grid/emergency-close", { method: "POST" });
+        const data = await res.json();
+        alert(currentLanguage === "ar" ? "تم تنفيذ الإغلاق الطارئ وتسييل الصفقات بنجاح." : "Emergency liquidation completed.");
+        fetchZgStatus();
+        loadBalancesAndOrders();
+    } catch (e) {
+        console.error("Error executing emergency close:", e);
+        alert("Emergency close error: " + e.message);
+    }
 }

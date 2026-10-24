@@ -56,6 +56,10 @@
                 <button class="nav-item" data-view="signal-bot" onclick="switchView('signal-bot')">
                     <i class="fa-solid fa-robot text-cyan"></i>
                     <span data-i18n="nav_signal_bot">Signal Bot (Webhook)</span>
+                </button>
+                <button class="nav-item" data-view="zone-grid" onclick="switchView('zone-grid')">
+                    <i class="fa-solid fa-layer-group text-emerald"></i>
+                    <span data-i18n="nav_zone_grid">Shark Zone Grid</span>
                     <span class="badge-dot-pink"></span>
                 </button>
 
@@ -451,6 +455,266 @@ if (buyCondition)
 
 if (sellCondition)
     alert('{"secret": "' + secretKey + '", "action": "SELL", "symbol": "' + syminfo.ticker + '"}', alert.freq_once_per_bar_close)</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ==================== VIEW: SHARK INDEPENDENT ZONE GRID ==================== -->
+                <section id="view-zone-grid" class="content-view">
+                    
+                    <!-- Zone Grid Header Banner -->
+                    <div class="card zone-hero-card">
+                        <div class="card-body flex-between-center">
+                            <div class="zone-hero-info">
+                                <div class="zone-tag">
+                                    <span class="pulse-dot-inline bg-cyan"></span>
+                                    <span data-i18n="zone_bot_badge">SHARK SMART-ZONE MESH ENGINE</span>
+                                </div>
+                                <h2 data-i18n="zone_hero_title">Shark Independent Zone Grid (شبكة الزونات المستقلة)</h2>
+                                <p data-i18n="zone_hero_desc">
+                                    Divide capital equally across 10 independent levels. On rise: sell previous + buy current. On drop: sequential single-buy. Never re-buys a holding level until closed.
+                                </p>
+                            </div>
+                            <div class="zone-hero-actions">
+                                <button class="btn btn-outline btn-sm" onclick="toggleBlueprintModal()">
+                                    <i class="fa-solid fa-image text-cyan"></i> <span data-i18n="btn_view_blueprint">View Architectural Diagram</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Blueprint Box -->
+                    <div id="blueprintContainer" class="card blueprint-card" style="display: none;">
+                        <div class="card-header flex-between">
+                            <h2><i class="fa-solid fa-diagram-project text-cyan"></i> <span data-i18n="blueprint_title">System Architecture & Execution Flowchart</span></h2>
+                            <button class="btn btn-xs btn-outline" onclick="toggleBlueprintModal()"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="card-body text-center">
+                            <img src="/static/img/zone_bot_concept.png" alt="Zone Bot Architecture" class="blueprint-img">
+                        </div>
+                    </div>
+
+                    <!-- Live Grid Stats Bar -->
+                    <div class="stats-bar">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-emerald-dim"><i class="fa-solid fa-money-bill-wave text-emerald"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="zone_stat_total">Total Capital</span>
+                                <span class="stat-value text-emerald" id="zgStatTotalCap">$200.00</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-blue-dim"><i class="fa-solid fa-layer-group text-blue"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="zone_stat_per_zone">Per Zone Capital</span>
+                                <span class="stat-value" id="zgStatPerZoneCap">$20.00 / Trade</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-purple-dim"><i class="fa-solid fa-cubes-stacked text-purple"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="zone_stat_active">Active Positions</span>
+                                <span class="stat-value text-purple" id="zgStatActiveTrades">0 / 10 Active</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <div class="stat-icon bg-orange-dim"><i class="fa-solid fa-chart-pie text-orange"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-label" data-i18n="zone_stat_pnl">Unrealized PnL</span>
+                                <span class="stat-value" id="zgStatPnl">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Setup & Controls Grid -->
+                    <div class="grid-two-columns">
+                        
+                        <!-- Zone Configuration Card -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2><i class="fa-solid fa-sliders text-cyan"></i> <span data-i18n="zone_config_title">Zone Grid Parameters & Capital</span></h2>
+                            </div>
+                            <div class="card-body">
+                                
+                                <!-- Trading Pair & Quick Selector -->
+                                <div class="form-group">
+                                    <div class="flex-between mb-5">
+                                        <label for="zgSymbol" data-i18n="zone_symbol_label">Trading Symbol (Pair)</label>
+                                        <div class="quick-pair-buttons">
+                                            <button class="pair-pill active" onclick="setZgPair('BTCUSDT', this)">BTC</button>
+                                            <button class="pair-pill" onclick="setZgPair('ETHUSDT', this)">ETH</button>
+                                            <button class="pair-pill" onclick="setZgPair('SOLUSDT', this)">SOL</button>
+                                            <button class="pair-pill" onclick="setZgPair('BNBUSDT', this)">BNB</button>
+                                        </div>
+                                    </div>
+                                    <div class="input-with-button">
+                                        <input type="text" id="zgSymbol" value="BTCUSDT" class="input-field ltr" placeholder="e.g. BTCUSDT">
+                                        <button class="btn btn-outline btn-sm" onclick="fetchLiveZgPrice()" title="Fetch current market price">
+                                            <i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="btn_fetch_price">Fetch Price</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="grid-two-fields">
+                                    <!-- Total Capital -->
+                                    <div class="form-group">
+                                        <label for="zgTotalCapital" data-i18n="zone_total_capital_label">Total Capital ($ USDT)</label>
+                                        <input type="number" id="zgTotalCapital" value="200" min="10" step="10" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                    </div>
+                                    <!-- Number of Zones -->
+                                    <div class="form-group">
+                                        <label for="zgNumZones" data-i18n="zone_num_zones_label">Number of Levels / Zones</label>
+                                        <input type="number" id="zgNumZones" value="10" min="2" max="50" step="1" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                    </div>
+                                </div>
+
+                                <div class="grid-two-fields">
+                                    <!-- Step Distance % -->
+                                    <div class="form-group">
+                                        <label for="zgStepPercent" data-i18n="zone_step_label">Distance Between Levels (%)</label>
+                                        <input type="number" id="zgStepPercent" value="1.0" min="0.1" max="20" step="0.1" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                    </div>
+                                    <!-- Base Starting Price -->
+                                    <div class="form-group">
+                                        <label for="zgBasePrice" data-i18n="zone_base_price_label">Base Starting Price ($)</label>
+                                        <input type="number" id="zgBasePrice" value="0" step="any" class="input-field ltr" placeholder="0 = Auto live price">
+                                    </div>
+                                </div>
+
+                                <!-- Dynamic Preview Pill -->
+                                <div class="calc-preview-card mb-15">
+                                    <div class="calc-row">
+                                        <span class="calc-label" data-i18n="zone_calc_per_zone">Capital per Level:</span>
+                                        <span class="calc-val text-emerald" id="zgCalcPerLevel">$20.00 / Level</span>
+                                    </div>
+                                    <div class="calc-row">
+                                        <span class="calc-label" data-i18n="zone_calc_max_orders">Max Concurrent Orders:</span>
+                                        <span class="calc-val text-cyan" id="zgCalcMaxOrders">10 Orders Max</span>
+                                    </div>
+                                </div>
+
+                                <!-- Stop Loss Settings -->
+                                <div class="form-group">
+                                    <label for="zgSlType" data-i18n="zone_sl_type_label">Stop Loss Strategy</label>
+                                    <select id="zgSlType" class="input-field select-field">
+                                        <option value="TOTAL" selected data-i18n="opt_sl_total">Option A: Total Portfolio SL (-10% of $200 = -$20 total drawdown)</option>
+                                        <option value="PER_ZONE" data-i18n="opt_sl_per_zone">Option B: Per-Zone Independent SL (-10% from entry price per level)</option>
+                                        <option value="NONE" data-i18n="opt_sl_none">Disabled / No Stop Loss</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="zgSlPercent" data-i18n="zone_sl_percent_label">Stop Loss Percentage (%)</label>
+                                    <input type="number" id="zgSlPercent" value="10.0" min="0.5" max="50" step="0.5" class="input-field ltr">
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="zone-actions-toolbar mt-20">
+                                    <button class="btn btn-outline" onclick="previewZoneGrid()">
+                                        <i class="fa-solid fa-calculator"></i> <span data-i18n="btn_preview_levels">Calculate & Preview Levels</span>
+                                    </button>
+                                    <button id="zgStartBtn" class="btn btn-success" onclick="startZoneGrid()">
+                                        <i class="fa-solid fa-play"></i> <span data-i18n="btn_start_zone_bot">Start Shark Zone Bot</span>
+                                    </button>
+                                    <button id="zgStopBtn" class="btn btn-warning" onclick="stopZoneGrid()" style="display: none;">
+                                        <i class="fa-solid fa-pause"></i> <span data-i18n="btn_pause_zone_bot">Pause Bot</span>
+                                    </button>
+                                    <button class="btn btn-danger" onclick="emergencyCloseZoneGrid()">
+                                        <i class="fa-solid fa-radiation"></i> <span data-i18n="btn_emergency_close">Emergency Close All</span>
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- Zone Execution Engine Visual Guide -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2><i class="fa-solid fa-shield-halved text-emerald"></i> <span data-i18n="zone_rules_title">How This Engine Protects & Trades</span></h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="rule-feature-box mb-12">
+                                    <div class="rf-icon text-cyan"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf1_title">Dual Action On Rise (أمران متزامنان عند الصعود)</h4>
+                                        <p data-i18n="rf1_desc">When price hits Level K, it sells Level K-1 for profit (+1%), and simultaneously buys Level K with target Level K+1.</p>
+                                    </div>
+                                </div>
+
+                                <div class="rule-feature-box mb-12">
+                                    <div class="rf-icon text-orange"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf2_title">Sequential Single-Buy On Retrace (شراء متسلسل بالهبوط)</h4>
+                                        <p data-i18n="rf2_desc">When price drops from 10 to 9, it buys Level 9 (because it was freed previously). If it falls to 8, it buys Level 8.</p>
+                                    </div>
+                                </div>
+
+                                <div class="rule-feature-box mb-12">
+                                    <div class="rf-icon text-red"><i class="fa-solid fa-lock"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf3_title">Strict One-Shot Rule (قاعدة تجميد المستوى ومنع التكرار)</h4>
+                                        <p data-i18n="rf3_desc">If price oscillates around Level 1, it will NEVER buy twice from Level 1 until that trade is sold at profit or stopped out.</p>
+                                    </div>
+                                </div>
+
+                                <div class="rule-feature-box">
+                                    <div class="rf-icon text-purple"><i class="fa-solid fa-coins"></i></div>
+                                    <div class="rf-text">
+                                        <h4 data-i18n="rf4_title">100% Guaranteed Capital Protection (أمان رأس المال)</h4>
+                                        <p data-i18n="rf4_desc">With 10 levels at $20 each, total exposure can never exceed $200 under any market crash or fluctuation.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Live Grid Levels Monitor Table -->
+                    <div class="card mt-20">
+                        <div class="card-header flex-between">
+                            <h2>
+                                <i class="fa-solid fa-list-check text-cyan"></i> 
+                                <span data-i18n="zone_levels_table_title">Live Independent Levels Monitor (حالة المستويات العشرة المباشرة)</span>
+                            </h2>
+                            <div class="table-actions-group">
+                                <span id="zgEngineStatusBadge" class="status-badge badge-offline">
+                                    <span class="dot"></span>
+                                    <span id="zgEngineStatusText">Bot: Stopped</span>
+                                </span>
+                                <button class="btn btn-xs btn-outline" onclick="fetchZgStatus()">
+                                    <i class="fa-solid fa-rotate-right"></i> <span data-i18n="refresh_btn">Refresh</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-scroll">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Level / المستوى</th>
+                                            <th>Trigger Price / سعر الشراء</th>
+                                            <th>Target Sell (+1%) / الهدف</th>
+                                            <th>Capital / المبلغ</th>
+                                            <th>Status / الحالة</th>
+                                            <th>Holding Qty / الكمية</th>
+                                            <th>Entry Price / الدخول</th>
+                                            <th>PnL / الربح والخسارة</th>
+                                            <th>Lock Status / القفل</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zgLevelsTableBody">
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted" data-i18n="zone_no_levels">
+                                                Click "Calculate & Preview Levels" or "Start Shark Zone Bot" to initialize grid levels.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

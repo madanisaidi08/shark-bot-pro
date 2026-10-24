@@ -43,6 +43,14 @@ class TradingEngine:
             await broadcaster.broadcast("ERROR", msg)
             return {"status": "error", "message": msg}
 
+        # Check if alert is specifically for Shark Zone Grid
+        if payload.get("bot_type") == "zone_grid" or payload.get("type") == "zone_grid":
+            from app.zone_grid_engine import zone_grid_engine
+            price = float(payload.get("price") or payload.get("close") or 0.0)
+            if price > 0:
+                await zone_grid_engine.on_price_tick(price)
+                return {"status": "success", "message": f"Shark Zone Grid processed price tick: ${price:,.4f}"}
+
         # 4. Immediate Live Balance Sync before trade execution
         try:
             fresh_balances = binance_service.get_balances()

@@ -7,8 +7,18 @@ from app.config import settings, save_settings, BotSettings
 from app.logger import broadcaster
 from app.binance_client import binance_service
 from app.trading_engine import trading_engine
+from app.zone_grid_engine import zone_grid_engine
 
 router = APIRouter()
+
+class ZoneGridConfigRequest(BaseModel):
+    symbol: str = "BTCUSDT"
+    total_capital: float = 200.0
+    num_zones: int = 10
+    zone_step_percent: float = 1.0
+    base_price: Optional[float] = None
+    stop_loss_type: str = "TOTAL"
+    stop_loss_percent: float = 10.0
 
 class UpdateSettingsRequest(BaseModel):
     binance_api_key: Optional[str] = None
@@ -140,4 +150,93 @@ async def test_signal(req: TestSignalRequest):
         "capital_percent": req.capital_percent or settings.capital_percent
     }
     result = await trading_engine.process_signal(payload)
+    return result
+
+# ==============================================================================
+# SHARK INDEPENDENT ZONE GRID API ENDPOINTS
+# ==============================================================================
+
+@router.get("/zone-grid/status")
+async def get_zone_grid_status():
+    return zone_grid_engine.get_full_status()
+
+@router.post("/zone-grid/configure")
+async def configure_zone_grid(req: ZoneGridConfigRequest):
+    base_p = req.base_price
+    if base_p is None or base_p <= 0:
+        if binance_service.is_connected():
+            try:
+                base_p = binance_service.get_ticker_price(req.symbol)
+            except Exception:
+                base_p = 100.0
+        else:
+            base_p = 100.0
+
+    zone_grid_engine.configure(
+        symbol=req.symbol,
+        total_capital=req.total_capital,
+        num_zones=req.num_zones,
+        zone_step_percent=req.zone_step_percent,
+        base_price=base_p,
+        stop_loss_type=req.stop_loss_type,
+        stop_loss_percent=req.stop_loss_percent
+    )
+    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث إعدادات شبكة الزونات لزوج {req.symbol} ({req.num_zones} مستويات بمبلغ ${zone_grid_engine.per_zone_capital:.2f} لكل مستوى).")
+    return zone_grid_engine.get_full_status()
+
+@router.post("/zone-grid/preview")
+async def preview_zone_grid(req: ZoneGridConfigRequest):
+    base_p = req.base_price
+    if base_p is None or base_p <= 0:
+        if binance_service.is_connected():
+            try:
+                base_p = binance_service.get_ticker_price(req.symbol)
+            except Exception:
+                base_p = 100.0
+        else:
+            base_p = 100.0
+
+    # Calculate preview levels without modifying active running bot
+    step_factor = 1.0 + (req.zone_step_percent / 100.0)
+    levels = []
+    cur_p = base_p
+    per_zone = round(req.total_capital / req.num_zones, 2)
+    for i in range(1, req.num_zones + 1):
+        next_p = cur_p * step_factor
+        levels.append({
+            "index": i,
+            "price": round(cur_p, 4),
+            "target_price": round(next_p, 4),
+            "capital": per_zone,
+            "is_holding": False
+        })
+        cur_p = next_p
+
+    return {
+        "symbol": req.symbol.upper(),
+        "base_price": round(base_p, 4),
+        "total_capital": req.total_capital,
+        "num_zones": req.num_zones,
+        "per_zone_capital": per_zone,
+        "zone_step_percent": req.zone_step_percent,
+        "levels": levels
+    }
+
+@router.post("/zone-grid/start")
+async def start_zone_grid():
+    try:
+        await zone_grid_engine.start()
+        return {"status": "success", "message": "Shark Zone Grid started successfully", "grid": zone_grid_engine.get_full_status()}
+    except Exception as e:
+        await broadcaster.broadcast("ERROR", f"فشل تشغيل بوت الزونات: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/zone-grid/stop")
+async def stop_zone_grid():
+    await zone_grid_engine.stop()
+    return {"status": "success", "message": "Shark Zone Grid paused", "grid": zone_grid_engine.get_full_status()}
+
+@router.post("/zone-grid/emergency-close")
+async def emergency_close_zone_grid():
+    result = await zone_grid_engine.emergency_liquidate_all()
     return result

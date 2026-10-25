@@ -1602,3 +1602,111 @@ html[dir="rtl"] .data-table { text-align: right; }
     margin-top: 3px;
     display: inline-block;
 }
+
+/* Levels Filter Bar */
+.levels-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.filter-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-right: 4px;
+}
+
+.filter-pill {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-pill:hover {
+    border-color: var(--cyan);
+    color: var(--text-primary);
+}
+
+.filter-pill.active {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+}
+
+.row-base-level {
+    background: rgba(6, 182, 212, 0.08) !important;
+    border-left: 3px solid var(--cyan) !important;
+}
+
+html[dir="rtl"] .row-base-level {
+    border-left: none !important;
+    border-right: 3px solid var(--cyan) !important;
+}
+
+.badge-base-marker {
+    font-size: 10px;
+    background: rgba(6, 182, 212, 0.2);
+    color: var(--cyan);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+    margin-left: 6px;
+}
+
+html[dir="rtl"] .badge-base-marker {
+    margin-left: 0;
+    margin-right: 6px;
+}
+
+/* Trade History Badges */
+.hist-badge-tp {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hist-badge-sl {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.hist-badge-emergency {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    font-size: 11px;
+    font-weight: 700;
+}

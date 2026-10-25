@@ -171,7 +171,25 @@ const translations = {
         rf6_title: "Pre-placed Limit Sell & Partial Fill Safety",
         rf6_desc: "Limit sell is instantly pre-placed at the next zone. If an order fills partially and price rallies, remaining buy order is cancelled and actual filled amount is sold at target.",
         demo_reset_success: "Demo wallet reset to $10,000.00 USDT successfully!",
-        demo_mode_changed: "Trading mode switched to: "
+        demo_mode_changed: "Trading mode switched to: ",
+        zone_all_coins_hint: "Supports all 700+ Binance Spot pairs with precision up to 5 decimals.",
+        zone_above_label: "Zones Above Price (~100 Upward)",
+        zone_below_label: "Zones Below Price (~100 Downward)",
+        zone_per_zone_label: "Capital per Active Trade ($)",
+        zone_calc_total_zones: "Total Grid Mesh:",
+        filter_label: "Display Filter:",
+        filter_all: "All Levels",
+        filter_active: "Active Positions Only",
+        filter_near: "Near Market Price (±10%)",
+        filter_above: "Above Base",
+        filter_below: "Below Base",
+        zone_history_title: "Trade Execution History (سجل الصفقات المنفذة)",
+        hist_stat_profit: "Total Realized Profit",
+        hist_stat_winrate: "Win Rate",
+        hist_stat_completed: "Completed Cycles",
+        hist_no_trades: "No closed trades yet. Closed zone positions will automatically appear here with exact profits and timestamps.",
+        btn_clear_history: "Clear History",
+        hist_cleared_success: "Trade history cleared successfully!"
     },
     ar: {
         market_predator: "المفترس في أسواق المال",
@@ -338,7 +356,25 @@ const translations = {
         rf6_title: "تعليق أمر البيع وإلغاء المتبقي عند التنفيذ الجزئي",
         rf6_desc: "بمجرد الشراء يُعلق فوراً أمر بيع ليمت عند المستوى الموالي، وإذا نُفذ الشراء جزئياً وصعد السعر يُلغى المتبقي ويباع المنفذ فقط.",
         demo_reset_success: "تم إعادة تعيين رصيد الحساب التجريبي إلى 10,000.00$ USDT بنجاح!",
-        demo_mode_changed: "تم تغيير وضع التداول إلى: "
+        demo_mode_changed: "تم تغيير وضع التداول إلى: ",
+        zone_all_coins_hint: "يدعم جميع أزواج بينانس الفورية (+700 زوج) مع دقة سعرية تصل إلى 5 أرقام بعد الفاصلة.",
+        zone_above_label: "المستويات للأعلى (~100 خط صاعد)",
+        zone_below_label: "المستويات للأسفل (~100 خط هابط)",
+        zone_per_zone_label: "مخصص الصفقة الواحدة ($)",
+        zone_calc_total_zones: "إجمالي شبكة الزونات:",
+        filter_label: "تصفية العرض:",
+        filter_all: "كافة المستويات",
+        filter_active: "الصفقات المفتوحة فقط",
+        filter_near: "القريبة من السعر (±10%)",
+        filter_above: "أعلى خط البداية",
+        filter_below: "أدنى خط البداية",
+        zone_history_title: "سجل صفقات الزونات المنفذة (الهيستوريك)",
+        hist_stat_profit: "إجمالي الأرباح المحققة",
+        hist_stat_winrate: "نسبة النجاح",
+        hist_stat_completed: "الدورات المكتملة",
+        hist_no_trades: "لا توجد صفقات مغلقة بعد. ستظهر هنا كل صفقة مغلقة فور تحقيق الربح مع توقيتها وسعر الخروج بدقة 5 أرقام.",
+        btn_clear_history: "مسح السجل",
+        hist_cleared_success: "تم مسح سجل الصفقات بنجاح!"
     }
 };
 
@@ -349,6 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadBotStatus();
     loadBalancesAndOrders();
     setupEventListeners();
+    loadBinanceSymbols();
 
     // Auto-sync balance every 12 seconds
     setInterval(() => {
@@ -1004,6 +1041,35 @@ function escapeHtml(str) {
 // ==============================================================================
 
 let isZgDemoMode = true; // default demo active
+let currentZgLevels = [];
+let currentZgStatusData = null;
+let currentLevelFilter = "all";
+
+// Helper: Format price with up to 5 decimals (or 8 for micro-tokens)
+function formatPrice(val, decimals = 5) {
+    if (val === undefined || val === null || isNaN(val)) return "0.00000";
+    const num = Number(val);
+    if (num === 0) return "0.00000";
+    if (num < 0.0001) return num.toFixed(8);
+    if (num < 0.01) return num.toFixed(6);
+    return num.toFixed(decimals);
+}
+
+// Fetch all 700+ Binance Spot USDT symbols and populate datalist
+async function loadBinanceSymbols() {
+    try {
+        const res = await fetch("/api/binance-symbols");
+        if (!res.ok) return;
+        const data = await res.json();
+        const symbols = data.symbols || [];
+        const dl = document.getElementById("binanceSymbolsList");
+        if (dl && symbols.length > 0) {
+            dl.innerHTML = symbols.map(s => `<option value="${s}"></option>`).join("");
+        }
+    } catch (e) {
+        console.error("Failed to load Binance symbols:", e);
+    }
+}
 
 function toggleBlueprintModal() {
     const box = document.getElementById("blueprintContainer");
@@ -1013,14 +1079,17 @@ function toggleBlueprintModal() {
 
 function updateZgCalcPreview() {
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
-    const perZone = numZones > 0 ? (totalCap / numZones).toFixed(2) : "0.00";
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
+    const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
+    const totalZones = zonesAbove + zonesBelow;
+    const maxOrders = Math.max(1, Math.floor(totalCap / perZoneCap));
 
-    const calcPerLevelEl = document.getElementById("zgCalcPerLevel");
+    const calcTotalZonesEl = document.getElementById("zgCalcTotalZones");
     const calcMaxOrdersEl = document.getElementById("zgCalcMaxOrders");
 
-    if (calcPerLevelEl) calcPerLevelEl.textContent = `$${perZone} / Level`;
-    if (calcMaxOrdersEl) calcMaxOrdersEl.textContent = `${numZones} Orders Max`;
+    if (calcTotalZonesEl) calcTotalZonesEl.textContent = `${totalZones} Zones (~${zonesBelow} Below, ~${zonesAbove} Above)`;
+    if (calcMaxOrdersEl) calcMaxOrdersEl.textContent = `${maxOrders} Orders Max ($${perZoneCap.toFixed(2)} / Trade)`;
 }
 
 async function setZgDemoMode(isDemo) {
@@ -1066,7 +1135,9 @@ async function fetchLiveZgPrice() {
             body: JSON.stringify({
                 symbol: symbol,
                 total_capital: parseFloat(document.getElementById("zgTotalCapital")?.value) || 200,
-                num_zones: parseInt(document.getElementById("zgNumZones")?.value) || 10,
+                zones_above: parseInt(document.getElementById("zgZonesAbove")?.value) || 100,
+                zones_below: parseInt(document.getElementById("zgZonesBelow")?.value) || 100,
+                per_zone_capital: parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0,
                 zone_step_percent: parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0,
                 base_price: 0,
                 open_range: document.getElementById("zgOpenRange")?.checked ?? true,
@@ -1075,8 +1146,9 @@ async function fetchLiveZgPrice() {
         });
         const data = await previewRes.json();
         if (data.base_price) {
-            document.getElementById("zgBasePrice").value = data.base_price;
-            renderZgLevels(data.levels, false);
+            document.getElementById("zgBasePrice").value = formatPrice(data.base_price, 5);
+            currentZgLevels = data.levels || [];
+            renderZgLevels(currentZgLevels, false, data.base_level_index, data.base_price);
         }
     } catch (e) {
         console.error("Error fetching live price:", e);
@@ -1084,17 +1156,33 @@ async function fetchLiveZgPrice() {
 }
 
 function setZgPair(symbol, btn) {
-    document.querySelectorAll(".quick-pair-buttons .pair-pill").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll("#zgQuickPairs .pair-pill").forEach(p => p.classList.remove("active"));
     if (btn) btn.classList.add("active");
     const input = document.getElementById("zgSymbol");
     if (input) input.value = symbol;
     fetchLiveZgPrice();
 }
 
+function setZgLevelFilter(filter, btn) {
+    currentLevelFilter = filter;
+    document.querySelectorAll(".levels-filter-bar .filter-pill").forEach(p => p.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    if (currentZgStatusData) {
+        renderZgLevels(
+            currentZgStatusData.levels || [],
+            currentZgStatusData.is_running,
+            currentZgStatusData.base_level_index,
+            currentZgStatusData.last_price || currentZgStatusData.base_price
+        );
+    }
+}
+
 async function previewZoneGrid() {
     const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
+    const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
     const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
     const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
     const openRange = document.getElementById("zgOpenRange")?.checked ?? true;
@@ -1106,7 +1194,9 @@ async function previewZoneGrid() {
             body: JSON.stringify({
                 symbol: symbol,
                 total_capital: totalCap,
-                num_zones: numZones,
+                zones_above: zonesAbove,
+                zones_below: zonesBelow,
+                per_zone_capital: perZoneCap,
                 zone_step_percent: stepPct,
                 base_price: baseP > 0 ? baseP : null,
                 open_range: openRange,
@@ -1115,9 +1205,10 @@ async function previewZoneGrid() {
         });
         const data = await res.json();
         if (data.base_price && (!baseP || baseP === 0)) {
-            document.getElementById("zgBasePrice").value = data.base_price;
+            document.getElementById("zgBasePrice").value = formatPrice(data.base_price, 5);
         }
-        renderZgLevels(data.levels, false);
+        currentZgLevels = data.levels || [];
+        renderZgLevels(currentZgLevels, false, data.base_level_index, data.base_price);
     } catch (e) {
         console.error("Error previewing grid:", e);
     }
@@ -1127,6 +1218,7 @@ async function fetchZgStatus() {
     try {
         const res = await fetch("/api/zone-grid/status");
         const data = await res.json();
+        currentZgStatusData = data;
 
         // Update stats
         const statTotal = document.getElementById("zgStatTotalCap");
@@ -1138,7 +1230,7 @@ async function fetchZgStatus() {
 
         if (statTotal) statTotal.textContent = `$${data.total_capital.toFixed(2)}`;
         if (statPerZone) statPerZone.textContent = `$${data.per_zone_capital.toFixed(2)} / Trade`;
-        if (statActive) statActive.textContent = `${data.active_trades_count} / ${data.num_zones} Active`;
+        if (statActive) statActive.textContent = `${data.active_trades_count} / ${data.max_active_trades || 10} Active`;
         if (statPnl) {
             const pnl = data.unrealized_pnl || 0.0;
             statPnl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
@@ -1162,7 +1254,7 @@ async function fetchZgStatus() {
         if (statModeBal) {
             if (isZgDemoMode) {
                 statModeBal.textContent = `🎮 Demo $${(data.demo_balance || 10000.0).toFixed(0)}`;
-                statModeBal.className = "stat-value text-emerald";
+                statModeBal.className = "stat-value text-emerald font-mono";
             } else {
                 statModeBal.textContent = "⚡ Live Binance";
                 statModeBal.className = "stat-value text-orange";
@@ -1175,7 +1267,7 @@ async function fetchZgStatus() {
             openRangeEl.checked = Boolean(data.open_range);
         }
 
-        // Update engine status badge
+        // Engine status badge
         const badgeEl = document.getElementById("zgEngineStatusBadge");
         const badgeText = document.getElementById("zgEngineStatusText");
         const startBtn = document.getElementById("zgStartBtn");
@@ -1198,16 +1290,25 @@ async function fetchZgStatus() {
         const symInput = document.getElementById("zgSymbol");
         if (symInput && data.symbol && !symInput.dataset.userEdited) symInput.value = data.symbol;
 
-        // Render levels table
-        if (data.levels && data.levels.length > 0) {
-            renderZgLevels(data.levels, data.is_running);
+        const baseInput = document.getElementById("zgBasePrice");
+        if (baseInput && data.base_price > 0 && !baseInput.dataset.userEdited && (!baseInput.value || baseInput.value == "0")) {
+            baseInput.value = formatPrice(data.base_price, 5);
         }
+
+        // Render levels table and trade history
+        if (data.levels && data.levels.length > 0) {
+            currentZgLevels = data.levels;
+            renderZgLevels(data.levels, data.is_running, data.base_level_index, data.last_price || data.base_price);
+        }
+
+        renderZgHistory(data.trade_history || [], data.total_realized_profit || 0.0, data.win_rate || 100.0);
+
     } catch (e) {
         console.error("Error fetching Zone Grid status:", e);
     }
 }
 
-function renderZgLevels(levels, isRunning) {
+function renderZgLevels(levels, isRunning, baseLevelIdx = 101, currentPrice = 0) {
     const tbody = document.getElementById("zgLevelsTableBody");
     if (!tbody) return;
 
@@ -1217,14 +1318,62 @@ function renderZgLevels(levels, isRunning) {
         return;
     }
 
-    // Sort descending: Level 10 down to Level 01 (matching financial chart order)
-    const sorted = [...levels].sort((a, b) => b.index - a.index);
+    const curP = Number(currentPrice) || 0;
+    const nearMin = curP * 0.90;
+    const nearMax = curP * 1.10;
+
+    // Calculate counts for filters
+    let totalCount = levels.length;
+    let activeCount = 0;
+    let nearCount = 0;
+    let aboveCount = 0;
+    let belowCount = 0;
+
+    levels.forEach(lvl => {
+        if (lvl.is_holding) activeCount++;
+        if (curP > 0 && lvl.price >= nearMin && lvl.price <= nearMax) nearCount++;
+        if (lvl.index >= baseLevelIdx) aboveCount++;
+        else belowCount++;
+    });
+
+    const elAll = document.getElementById("countFilterAll");
+    const elActive = document.getElementById("countFilterActive");
+    const elNear = document.getElementById("countFilterNear");
+    const elAbove = document.getElementById("countFilterAbove");
+    const elBelow = document.getElementById("countFilterBelow");
+
+    if (elAll) elAll.textContent = totalCount;
+    if (elActive) elActive.textContent = activeCount;
+    if (elNear) elNear.textContent = nearCount;
+    if (elAbove) elAbove.textContent = aboveCount;
+    if (elBelow) elBelow.textContent = belowCount;
+
+    // Filter levels
+    let filtered = [...levels];
+    if (currentLevelFilter === "active") {
+        filtered = filtered.filter(lvl => lvl.is_holding);
+    } else if (currentLevelFilter === "near") {
+        filtered = curP > 0 ? filtered.filter(lvl => lvl.price >= nearMin && lvl.price <= nearMax) : filtered;
+    } else if (currentLevelFilter === "above") {
+        filtered = filtered.filter(lvl => lvl.index >= baseLevelIdx);
+    } else if (currentLevelFilter === "below") {
+        filtered = filtered.filter(lvl => lvl.index < baseLevelIdx);
+    }
+
+    // Sort descending by index (Level 200 down to Level 01)
+    filtered.sort((a, b) => b.index - a.index);
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No levels match the selected filter "${currentLevelFilter}".</td></tr>`;
+        return;
+    }
 
     let html = "";
-    sorted.forEach(lvl => {
+    filtered.forEach(lvl => {
         const isHolding = lvl.is_holding;
-        let statusBadge = "";
+        const isBase = (lvl.index === baseLevelIdx);
 
+        let statusBadge = "";
         if (isHolding) {
             if (lvl.is_partial) {
                 statusBadge = `<span class="level-badge-partial"><i class="fa-solid fa-triangle-exclamation"></i> ${currentLanguage === 'ar' ? 'تنفيذ جزئي' : 'PARTIAL'}</span>`;
@@ -1248,7 +1397,7 @@ function renderZgLevels(levels, isRunning) {
         const pnl = lvl.current_pnl || 0.0;
         const pnlPct = lvl.current_pnl_pct || 0.0;
         const pnlHtml = isHolding
-            ? `<span class="${pnl >= 0 ? 'text-emerald' : 'text-danger'} font-mono font-bold">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(1)}%)</span>`
+            ? `<span class="${pnl >= 0 ? 'text-emerald' : 'text-danger'} font-mono font-bold">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</span>`
             : `<span class="text-muted">-</span>`;
 
         const qtyHtml = isHolding && lvl.bought_qty > 0
@@ -1256,16 +1405,19 @@ function renderZgLevels(levels, isRunning) {
             : `<span class="text-muted">-</span>`;
 
         const entryHtml = isHolding && lvl.buy_price > 0
-            ? `<span class="font-mono">$${lvl.buy_price.toFixed(4)}</span>`
+            ? `<span class="font-mono font-bold">$${formatPrice(lvl.buy_price, 5)}</span>`
             : `<span class="text-muted">-</span>`;
 
         const capitalVal = lvl.capital || lvl.total_cost || 20.0;
 
         html += `
-            <tr class="${isHolding ? 'row-holding-active' : ''}">
-                <td class="font-bold text-cyan">Level ${String(lvl.index).padStart(2, '0')}</td>
-                <td class="font-mono font-bold">$${lvl.price.toFixed(4)}</td>
-                <td class="font-mono text-emerald font-bold">$${lvl.target_price.toFixed(4)} <small class="text-muted">(+1%)</small></td>
+            <tr class="${isHolding ? 'row-holding-active' : ''} ${isBase ? 'row-base-level' : ''}">
+                <td class="font-bold text-cyan">
+                    Level ${String(lvl.index).padStart(3, '0')}
+                    ${isBase ? `<span class="badge-base-marker">🎯 Base</span>` : ''}
+                </td>
+                <td class="font-mono font-bold">$${formatPrice(lvl.price, 5)}</td>
+                <td class="font-mono text-emerald font-bold">$${formatPrice(lvl.target_price, 5)} <small class="text-muted">(+1%)</small></td>
                 <td class="font-mono">$${capitalVal.toFixed(2)}</td>
                 <td>${statusBadge}</td>
                 <td>${qtyHtml}</td>
@@ -1279,10 +1431,90 @@ function renderZgLevels(levels, isRunning) {
     tbody.innerHTML = html;
 }
 
+function renderZgHistory(history, totalProfit = 0.0, winRate = 100.0) {
+    const tbody = document.getElementById("zgHistoryTableBody");
+    if (!tbody) return;
+
+    const histBadge = document.getElementById("zgHistTotalBadge");
+    const profitEl = document.getElementById("zgHistTotalProfit");
+    const winrateEl = document.getElementById("zgHistWinRate");
+    const completedEl = document.getElementById("zgHistCompletedCount");
+
+    if (histBadge) histBadge.textContent = `${history.length} Trades`;
+    if (profitEl) {
+        profitEl.textContent = `${totalProfit >= 0 ? '+' : ''}$${totalProfit.toFixed(2)} USDT`;
+        profitEl.className = `stat-value font-mono ${totalProfit >= 0 ? 'text-emerald' : 'text-danger'}`;
+    }
+    if (winrateEl) winrateEl.textContent = `${winRate.toFixed(1)}%`;
+    if (completedEl) completedEl.textContent = `${history.length} Trades`;
+
+    if (!history || history.length === 0) {
+        const dict = translations[currentLanguage] || translations.en;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">${dict.hist_no_trades}</td></tr>`;
+        return;
+    }
+
+    let html = "";
+    history.forEach(t => {
+        const pnl = Number(t.profit_usd || 0.0);
+        const pnlPct = Number(t.profit_pct || 0.0);
+
+        let typeBadge = "";
+        if (t.type === "STOP_LOSS") {
+            typeBadge = `<span class="hist-badge-sl"><i class="fa-solid fa-shield-xmark"></i> SL</span>`;
+        } else if (t.type === "EMERGENCY_CLOSE") {
+            typeBadge = `<span class="hist-badge-emergency"><i class="fa-solid fa-triangle-exclamation"></i> Emergency</span>`;
+        } else {
+            typeBadge = `<span class="hist-badge-tp"><i class="fa-solid fa-bullseye"></i> Take Profit</span>`;
+        }
+
+        const modeBadge = (t.mode === "DEMO")
+            ? `<span class="badge-pill bg-emerald-dim text-emerald">🎮 Demo</span>`
+            : `<span class="badge-pill bg-orange-dim text-orange">⚡ Live</span>`;
+
+        html += `
+            <tr>
+                <td class="font-mono text-cyan font-bold">${t.id}</td>
+                <td class="font-bold">Level ${String(t.level).padStart(3, '0')}</td>
+                <td>${modeBadge}</td>
+                <td>${typeBadge}</td>
+                <td class="font-mono">$${formatPrice(t.buy_price, 5)}</td>
+                <td class="font-mono font-bold text-emerald">$${formatPrice(t.sell_price, 5)}</td>
+                <td class="font-mono">$${Number(t.cost || 20).toFixed(2)}</td>
+                <td class="font-mono font-bold ${pnl >= 0 ? 'text-emerald' : 'text-danger'}">
+                    ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnl >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)
+                </td>
+                <td class="font-mono text-muted">${t.sell_time || t.date}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+async function clearZgHistory() {
+    const confirmMsg = currentLanguage === "ar"
+        ? "هل أنت متأكد من رغبتك في مسح سجل صفقات الزونات بالكامل؟"
+        : "Are you sure you want to clear the entire zone trade history?";
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        await fetch("/api/zone-grid/history/clear", { method: "POST" });
+        const dict = translations[currentLanguage] || translations.en;
+        alert(dict.hist_cleared_success || "Trade history cleared successfully!");
+        fetchZgStatus();
+    } catch (e) {
+        console.error("Error clearing history:", e);
+    }
+}
+
 async function startZoneGrid() {
     const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const numZones = parseInt(document.getElementById("zgNumZones")?.value) || 10;
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
+    const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
     const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
     const baseP = parseFloat(document.getElementById("zgBasePrice")?.value) || 0.0;
     const slType = document.getElementById("zgSlType")?.value || "TOTAL";
@@ -1290,14 +1522,16 @@ async function startZoneGrid() {
     const openRange = document.getElementById("zgOpenRange")?.checked ?? true;
 
     try {
-        // 1. Configure with open range & demo mode
+        // 1. Configure with open range, demo mode, zones above & below, capital per trade
         await fetch("/api/zone-grid/configure", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 symbol: symbol,
                 total_capital: totalCap,
-                num_zones: numZones,
+                zones_above: zonesAbove,
+                zones_below: zonesBelow,
+                per_zone_capital: perZoneCap,
                 zone_step_percent: stepPct,
                 base_price: baseP > 0 ? baseP : null,
                 stop_loss_type: slType,

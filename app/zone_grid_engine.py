@@ -11,6 +11,20 @@ from app.binance_client import binance_service
 
 STATE_FILE = Path(__file__).resolve().parent.parent / "zone_grid_state.json"
 
+def get_precision(price: float) -> int:
+    """
+    Returns decimal precision:
+    - 5 decimal places for standard prices (user requirement: 5 digits after comma)
+    - Up to 8 decimal places for micro-value coins (< 0.0001 e.g. PEPE, SHIB)
+    """
+    if price <= 0:
+        return 5
+    if price < 0.0001:
+        return 8
+    elif price < 0.01:
+        return 6
+    return 5
+
 class ZoneLevel:
     def __init__(
         self,
@@ -74,7 +88,10 @@ class ZoneGridEngine:
     def __init__(self):
         self.symbol: str = "BTCUSDT"
         self.total_capital: float = 200.0
-        self.num_zones: int = 10
+        self.zones_above: int = 100
+        self.zones_below: int = 100
+        self.num_zones: int = 200  # zones_above + zones_below
+        self.custom_per_zone_capital: Optional[float] = 20.0
         self.zone_step_percent: float = 1.0
         self.base_price: float = 0.0
         self.stop_loss_type: str = "TOTAL"  # "TOTAL", "PER_ZONE", "NONE"
@@ -85,58 +102,82 @@ class ZoneGridEngine:
         self.is_running: bool = False
         self.levels: List[ZoneLevel] = []
         self.last_price: float = 0.0
+        self.trade_history: List[Dict[str, Any]] = []
         self._watcher_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
         self.load_state()
 
     @property
     def per_zone_capital(self) -> float:
-        if self.num_zones <= 0:
-            return 20.0
-        return round(self.total_capital / self.num_zones, 2)
+        if self.custom_per_zone_capital and self.custom_per_zone_capital > 0:
+            return round(self.custom_per_zone_capital, 2)
+        return round(max(5.0, min(self.total_capital, self.total_capital / 10.0)), 2)
+
+    @property
+    def max_active_trades(self) -> int:
+        if self.per_zone_capital <= 0:
+            return 10
+        return max(1, int(self.total_capital / self.per_zone_capital))
 
     def generate_levels(self, base_price: float):
         """
-        Generate N levels starting from base_price upwards by zone_step_percent
+        Generate complete zone mesh centered around base_price:
+        ~100 zones below and ~100 zones above.
+        Prices formatted with 5 decimal places (or 8 for micro-tokens).
         """
-        self.base_price = base_price
+        prec = get_precision(base_price)
+        self.base_price = round(base_price, prec)
         self.levels = []
         step_factor = 1.0 + (self.zone_step_percent / 100.0)
 
-        current_p = base_price
-        for i in range(1, self.num_zones + 1):
+        # Lowest starting price: base_price / (step_factor ^ zones_below)
+        lowest_p = self.base_price / (step_factor ** self.zones_below)
+
+        total_zones = self.zones_below + self.zones_above
+        current_p = lowest_p
+        for i in range(1, total_zones + 1):
             next_p = current_p * step_factor
             lvl = ZoneLevel(
                 index=i,
-                price=round(current_p, 4),
-                target_price=round(next_p, 4),
+                price=round(current_p, prec),
+                target_price=round(next_p, prec),
                 is_holding=False
             )
             self.levels.append(lvl)
             current_p = next_p
 
+        self.num_zones = len(self.levels)
         self.save_state()
 
     def configure(
         self,
         symbol: str,
         total_capital: float,
-        num_zones: int,
-        zone_step_percent: float,
-        base_price: float,
-        stop_loss_type: str,
-        stop_loss_percent: float,
+        num_zones: Optional[int] = None,
+        zone_step_percent: float = 1.0,
+        base_price: float = 0.0,
+        stop_loss_type: str = "TOTAL",
+        stop_loss_percent: float = 10.0,
         open_range: bool = True,
-        demo_mode: bool = False
+        demo_mode: bool = False,
+        zones_above: int = 100,
+        zones_below: int = 100,
+        per_zone_capital: Optional[float] = 20.0
     ):
         self.symbol = symbol.upper().replace("/", "").replace(" ", "").replace("-", "")
         self.total_capital = max(10.0, float(total_capital))
-        self.num_zones = max(2, min(50, int(num_zones)))
-        self.zone_step_percent = max(0.1, float(zone_step_percent))
+        self.zones_above = max(5, min(300, int(zones_above)))
+        self.zones_below = max(5, min(300, int(zones_below)))
+        self.num_zones = self.zones_above + self.zones_below
+        self.zone_step_percent = max(0.01, float(zone_step_percent))
         self.stop_loss_type = stop_loss_type.upper()
         self.stop_loss_percent = max(0.5, float(stop_loss_percent))
         self.open_range = bool(open_range)
         self.demo_mode = bool(demo_mode)
+        if per_zone_capital and float(per_zone_capital) > 0:
+            self.custom_per_zone_capital = float(per_zone_capital)
+        else:
+            self.custom_per_zone_capital = round(max(5.0, min(self.total_capital, self.total_capital / 10.0)), 2)
 
         if base_price > 0:
             self.generate_levels(base_price)
@@ -155,12 +196,20 @@ class ZoneGridEngine:
         self.save_state()
         broadcaster.log_sync("SUCCESS", f"🎮 تم إعادة تعيين رصيد الحساب التجريبي إلى ${amount:,.2f} USDT بنجاح!")
 
+    def clear_history(self):
+        self.trade_history = []
+        self.save_state()
+        broadcaster.log_sync("INFO", "🗑️ تم مسح سجل صفقات الزونات بالكامل.")
+
     def save_state(self):
         try:
             data = {
                 "symbol": self.symbol,
                 "total_capital": self.total_capital,
+                "zones_above": self.zones_above,
+                "zones_below": self.zones_below,
                 "num_zones": self.num_zones,
+                "custom_per_zone_capital": self.custom_per_zone_capital,
                 "zone_step_percent": self.zone_step_percent,
                 "base_price": self.base_price,
                 "stop_loss_type": self.stop_loss_type,
@@ -170,7 +219,8 @@ class ZoneGridEngine:
                 "demo_balance": self.demo_balance,
                 "is_running": self.is_running,
                 "last_price": self.last_price,
-                "levels": [lvl.to_dict() for lvl in self.levels]
+                "levels": [lvl.to_dict() for lvl in self.levels],
+                "trade_history": self.trade_history[:500]
             }
             with open(STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
@@ -185,7 +235,10 @@ class ZoneGridEngine:
                 data = json.load(f)
             self.symbol = data.get("symbol", "BTCUSDT")
             self.total_capital = float(data.get("total_capital", 200.0))
-            self.num_zones = int(data.get("num_zones", 10))
+            self.zones_above = int(data.get("zones_above", 100))
+            self.zones_below = int(data.get("zones_below", 100))
+            self.num_zones = int(data.get("num_zones", self.zones_above + self.zones_below))
+            self.custom_per_zone_capital = data.get("custom_per_zone_capital", 20.0)
             self.zone_step_percent = float(data.get("zone_step_percent", 1.0))
             self.base_price = float(data.get("base_price", 0.0))
             self.stop_loss_type = data.get("stop_loss_type", "TOTAL")
@@ -196,6 +249,7 @@ class ZoneGridEngine:
             self.is_running = bool(data.get("is_running", False))
             self.last_price = float(data.get("last_price", 0.0))
             self.levels = [ZoneLevel.from_dict(d) for d in data.get("levels", [])]
+            self.trade_history = data.get("trade_history", [])
         except Exception as e:
             broadcaster.log_sync("WARNING", f"Could not load zone grid state: {str(e)}")
 
@@ -214,7 +268,7 @@ class ZoneGridEngine:
         range_str = "🌐 OPEN RANGE (Trailing Infinity)" if self.open_range else "🔒 FIXED RANGE"
         await broadcaster.broadcast(
             "SUCCESS",
-            f"🚀 Shark Zone Grid STARTED for {self.symbol}! Mode: {mode_str} | Range: {range_str} | Capital: ${self.total_capital:,.2f} ({self.num_zones} levels @ ${self.per_zone_capital:,.2f} each | Gap: {self.zone_step_percent}%)"
+            f"🚀 Shark Zone Grid STARTED for {self.symbol}! Mode: {mode_str} | Range: {range_str} | Capital: ${self.total_capital:,.2f} ({self.num_zones} levels [~{self.zones_below} Below, ~{self.zones_above} Above] @ ${self.per_zone_capital:,.2f}/trade | Max Active: {self.max_active_trades} | Gap: {self.zone_step_percent}%)"
         )
 
         if not self._watcher_task or self._watcher_task.done():
@@ -234,43 +288,71 @@ class ZoneGridEngine:
         async with self._lock:
             sold_count = 0
             total_qty_to_sell = 0.0
+            cur_p = self.last_price
+            prec = get_precision(cur_p)
+
             for lvl in self.levels:
                 if lvl.is_holding and lvl.bought_qty > 0:
+                    sold_count += 1
                     total_qty_to_sell += lvl.bought_qty
+                    loss_usd = (cur_p - lvl.buy_price) * lvl.bought_qty
+                    loss_pct = ((cur_p - lvl.buy_price) / lvl.buy_price) * 100.0 if lvl.buy_price > 0 else 0.0
+
+                    # Record in trade history
+                    trade_rec = {
+                        "id": f"TRD-{int(time.time() * 1000)}-{lvl.index}",
+                        "level": lvl.index,
+                        "symbol": self.symbol,
+                        "buy_price": round(lvl.buy_price, prec),
+                        "sell_price": round(cur_p, prec),
+                        "qty": round(lvl.bought_qty, 6),
+                        "cost": round(lvl.total_cost, 2),
+                        "revenue": round(lvl.bought_qty * cur_p, 2),
+                        "profit_usd": round(loss_usd, 2),
+                        "profit_pct": round(loss_pct, 2),
+                        "buy_time": lvl.last_trade_time or time.strftime("%H:%M:%S"),
+                        "sell_time": time.strftime("%H:%M:%S"),
+                        "date": time.strftime("%Y-%m-%d"),
+                        "mode": "DEMO" if self.demo_mode else "REAL",
+                        "type": "EMERGENCY_CLOSE"
+                    }
+                    self.trade_history.insert(0, trade_rec)
+
                     # Cancel any pre-placed sell or buy orders
                     if not self.demo_mode:
                         if lvl.sell_order_id:
                             binance_service.cancel_order(self.symbol, lvl.sell_order_id)
                         if lvl.buy_order_id:
                             binance_service.cancel_order(self.symbol, lvl.buy_order_id)
+
+                    if self.demo_mode:
+                        self.demo_balance += (lvl.bought_qty * cur_p)
+
                     lvl.is_holding = False
                     lvl.bought_qty = 0.0
                     lvl.buy_price = 0.0
                     lvl.total_cost = 0.0
                     lvl.sell_order_id = None
                     lvl.buy_order_id = None
-                    sold_count += 1
+
+            if len(self.trade_history) > 500:
+                self.trade_history = self.trade_history[:500]
 
             self.is_running = False
             self.save_state()
 
             if total_qty_to_sell > 0:
                 if self.demo_mode:
-                    cur_p = binance_service.get_ticker_price(self.symbol)
-                    recovered = total_qty_to_sell * cur_p
-                    self.demo_balance += recovered
-                    self.save_state()
-                    await broadcaster.broadcast("SUCCESS", f"🎮 [DEMO] Emergency liquidated {sold_count} levels. Recovered ${recovered:,.2f} USDT to Demo Wallet.")
-                    return {"status": "success", "sold_count": sold_count}
+                    await broadcaster.broadcast("WARNING", f"🚨 [DEMO EMERGENCY CLOSE] Liquidated {sold_count} positions. Demo Wallet: ${self.demo_balance:,.2f} USDT.")
+                    return {"status": "success", "mode": "demo", "sold_count": sold_count}
                 else:
-                    await broadcaster.broadcast(
-                        "WARNING",
-                        f"🚨 EMERGENCY LIQUIDATION: Selling {total_qty_to_sell:.6f} across {sold_count} active levels for {self.symbol}..."
-                    )
                     try:
-                        res = binance_service.place_market_sell(self.symbol, total_qty_to_sell)
-                        await broadcaster.broadcast("SUCCESS", f"✅ Emergency liquidation completed on Binance Spot.")
-                        return {"status": "success", "sold_count": sold_count, "order": res}
+                        clean_symbol = self.symbol.replace("USDT", "")
+                        free_bal = binance_service.get_asset_free_balance(clean_symbol)
+                        final_qty = min(total_qty_to_sell, free_bal) if free_bal > 0 else total_qty_to_sell
+                        res = binance_service.place_market_sell(self.symbol, quantity=final_qty)
+                        await broadcaster.broadcast("WARNING", f"🚨 [EMERGENCY CLOSE] Liquidated {sold_count} positions ({final_qty:.6f} {self.symbol}) at market price.")
+                        return {"status": "success", "mode": "real", "sold_count": sold_count, "order": res}
                     except Exception as e:
                         await broadcaster.broadcast("ERROR", f"Failed to execute emergency market sell: {str(e)}")
                         return {"status": "error", "message": str(e)}
@@ -305,18 +387,18 @@ class ZoneGridEngine:
         async with self._lock:
             prev_price = self.last_price if self.last_price > 0 else current_price
             self.last_price = current_price
+            prec = get_precision(current_price)
 
             # ------------------------------------------------------------------
             # 1. OPEN RANGE ENGINE: DYNAMIC TRAILING UPWARDS
             # ------------------------------------------------------------------
             if self.open_range and len(self.levels) > 0:
                 top_level = self.levels[-1]
-                # If price is rising and touching/exceeding top level's target price:
                 if current_price >= top_level.target_price:
                     step_factor = 1.0 + (self.zone_step_percent / 100.0)
                     new_idx = len(self.levels) + 1
-                    new_price = round(top_level.target_price, 4)
-                    new_target = round(new_price * step_factor, 4)
+                    new_price = round(top_level.target_price, prec)
+                    new_target = round(new_price * step_factor, prec)
 
                     new_lvl = ZoneLevel(
                         index=new_idx,
@@ -325,9 +407,11 @@ class ZoneGridEngine:
                         is_holding=False
                     )
                     self.levels.append(new_lvl)
+                    self.zones_above += 1
+                    self.num_zones = len(self.levels)
                     await broadcaster.broadcast(
                         "INFO",
-                        f"🌐 [OPEN RANGE TRAILING] Price broke above top level! Added Level {new_idx:02d} @ ${new_price:,.4f} (Target: ${new_target:,.4f}) 🚀"
+                        f"🌐 [OPEN RANGE TRAILING] Price broke above top level! Added Level {new_idx:02d} @ ${new_price:,.5f} (Target: ${new_target:,.5f}) 🚀"
                     )
 
             # 2. Check Stop Losses
@@ -366,16 +450,15 @@ class ZoneGridEngine:
                 # ========================================================
                 if is_rising:
                     # 1. Previous level selling:
-                    if lvl_idx > 1:
-                        prev_lvl = self.levels[lvl_idx - 2]
+                    if lvl_idx > 1 and (i - 1) >= 0:
+                        prev_lvl = self.levels[i - 1]
                         if prev_lvl.is_holding:
                             await self._sell_level(prev_lvl, current_price, reason="TP_REACHED_HIGHER_LEVEL")
 
                     # 2. Current level buying:
                     if not lvl.is_holding:
-                        # Max active concurrent trades safeguard:
                         active_count = sum(1 for x in self.levels if x.is_holding)
-                        if active_count < self.num_zones:
+                        if active_count < self.max_active_trades:
                             await self._buy_level(lvl, current_price)
 
                 # ========================================================
@@ -384,7 +467,7 @@ class ZoneGridEngine:
                 else:
                     if not lvl.is_holding:
                         active_count = sum(1 for x in self.levels if x.is_holding)
-                        if active_count < self.num_zones:
+                        if active_count < self.max_active_trades:
                             await self._buy_level(lvl, current_price)
                     else:
                         # STRICT ONE-SHOT RULE: Never re-buy a holding level!
@@ -398,11 +481,13 @@ class ZoneGridEngine:
         """
         amount = self.per_zone_capital
         lvl_num = lvl.index
+        prec = get_precision(current_price)
 
         prefix = "🎮 [DEMO]" if self.demo_mode else "⚡ [REAL]"
+        target_idx = lvl_num + 1
         await broadcaster.broadcast(
             "INFO",
-            f"{prefix} Level {lvl_num:02d} touched @ ${current_price:,.4f} -> Executing BUY for ${amount:.2f} (Target: Level {lvl_num+1:02d} @ ${lvl.target_price:,.4f})"
+            f"{prefix} Level {lvl_num:02d} touched @ ${current_price:,.5f} -> Executing BUY for ${amount:.2f} (Target: Level {target_idx:02d} @ ${lvl.target_price:,.5f})"
         )
 
         # -------------------------------------------------------------
@@ -426,7 +511,7 @@ class ZoneGridEngine:
 
             await broadcaster.broadcast(
                 "SUCCESS",
-                f"✅ {prefix} Level {lvl_num:02d} LOCKED 🔒 | Bought {executed_qty:.6f} {self.symbol} @ ${current_price:,.4f} | Pre-placed Target Sell @ ${lvl.target_price:,.4f} (+{self.zone_step_percent}%) | Demo Wallet: ${self.demo_balance:,.2f}"
+                f"✅ {prefix} Level {lvl_num:02d} LOCKED 🔒 | Bought {executed_qty:.6f} {self.symbol} @ ${current_price:,.5f} | Pre-placed Target Sell @ ${lvl.target_price:,.5f} (+{self.zone_step_percent}%) | Demo Wallet: ${self.demo_balance:,.2f}"
             )
             return
 
@@ -444,59 +529,53 @@ class ZoneGridEngine:
             else:
                 avg_price = cummulative_cost / executed_qty if executed_qty > 0 else current_price
 
-            # Check if partially filled
             is_partial = (cummulative_cost < amount * 0.95)
 
             lvl.is_holding = True
             lvl.bought_qty = executed_qty
             lvl.buy_price = avg_price
-            lvl.total_cost = cummulative_cost if cummulative_cost > 0 else amount
+            lvl.total_cost = cummulative_cost
             lvl.buy_order_id = buy_order.get("orderId")
             lvl.is_partial = is_partial
             lvl.last_trade_time = time.strftime("%H:%M:%S")
 
-            await broadcaster.broadcast(
-                "SUCCESS",
-                f"✅ Level {lvl_num:02d} LOCKED 🔒 | Filled {executed_qty:.6f} @ ${avg_price:,.4f} (Total: ${cummulative_cost:,.2f})"
-            )
-
-            # IMMEDIATELY PRE-PLACE LIMIT SELL ORDER AT TARGET PRICE!
+            # ---------------------------------------------------------
+            # IMMEDIATELY PRE-PLACE LIMIT SELL ORDER ON BINANCE AT TARGET!
+            # ---------------------------------------------------------
+            target_sell_price = lvl.target_price
             try:
-                sell_limit = binance_service.place_limit_sell(
+                limit_sell = binance_service.place_limit_sell(
                     symbol=self.symbol,
                     quantity=executed_qty,
-                    price=lvl.target_price
+                    price=target_sell_price
                 )
-                lvl.sell_order_id = sell_limit.get("orderId")
+                lvl.sell_order_id = limit_sell.get("orderId")
                 await broadcaster.broadcast(
                     "SUCCESS",
-                    f"📌 [Level {lvl_num:02d}] Pre-placed Limit Sell order active on Binance @ ${lvl.target_price:,.4f} (Order #{lvl.sell_order_id})"
+                    f"✅ [Level {lvl_num:02d} LOCKED 🔒] Bought {executed_qty:.6f} {self.symbol} @ ${avg_price:,.5f} | Pre-placed Limit Sell #{lvl.sell_order_id} @ ${target_sell_price:,.5f} (+{self.zone_step_percent}%)"
                 )
-            except Exception as limit_err:
+            except Exception as e_limit:
+                lvl.sell_order_id = None
                 await broadcaster.broadcast(
-                    "INFO",
-                    f"ℹ️ [Level {lvl_num:02d}] Watcher will trigger Market Sell at target (${lvl.target_price:,.4f})."
+                    "WARNING",
+                    f"⚠️ [Level {lvl_num:02d}] Buy succeeded, but pre-placing Limit Sell failed ({str(e_limit)}). Will monitor and sell via market execution."
                 )
-
-            # Sync live balance
-            try:
-                fresh_bal = binance_service.get_balances()
-                await broadcaster.broadcast_event("balance_updated", fresh_bal)
-            except Exception:
-                pass
 
         except Exception as e:
-            await broadcaster.broadcast("ERROR", f"❌ [Level {lvl_num:02d}] BUY failed: {str(e)}")
+            lvl.is_holding = False
+            await broadcaster.broadcast("ERROR", f"❌ [Level {lvl_num:02d}] Market BUY failed: {str(e)}")
 
-    async def _sell_level(self, lvl: ZoneLevel, current_price: float, reason: str = "TP"):
+    async def _sell_level(self, lvl: ZoneLevel, current_price: float, reason: str = "TARGET_HIT"):
         """
-        Execute sell for this level, taking profit, cancelling any remaining partial orders, and freeing the level
+        Execute sell for this level, realizing profit and freeing up the level.
+        Handles both full fills and partial fills (cancelling unfilled remainder).
+        Records trade into trade_history.
         """
         lvl_num = lvl.index
         qty_to_sell = lvl.bought_qty
+        prec = get_precision(current_price)
 
-        if qty_to_sell <= 0:
-            lvl.is_holding = False
+        if qty_to_sell <= 0 or not lvl.is_holding:
             return
 
         prefix = "🎮 [DEMO]" if self.demo_mode else "⚡ [REAL]"
@@ -505,7 +584,7 @@ class ZoneGridEngine:
 
         await broadcaster.broadcast(
             "INFO",
-            f"💰 {prefix} Level {lvl_num:02d} Target Reached! Selling {qty_to_sell:.6f} @ ${current_price:,.4f} | Est. PnL: +{pnl_percent:.2f}% (+${pnl_usd:.2f})"
+            f"💰 {prefix} Level {lvl_num:02d} Target Reached! Selling {qty_to_sell:.6f} @ ${current_price:,.5f} | Est. PnL: +{pnl_percent:.2f}% (+${pnl_usd:.2f})"
         )
 
         # -------------------------------------------------------------
@@ -514,6 +593,28 @@ class ZoneGridEngine:
         if self.demo_mode:
             revenue = qty_to_sell * current_price
             self.demo_balance += revenue
+
+            # Record in Trade History
+            trade_rec = {
+                "id": f"TRD-{int(time.time() * 1000)}",
+                "level": lvl_num,
+                "symbol": self.symbol,
+                "buy_price": round(lvl.buy_price, prec),
+                "sell_price": round(current_price, prec),
+                "qty": round(qty_to_sell, 6),
+                "cost": round(lvl.total_cost, 2),
+                "revenue": round(revenue, 2),
+                "profit_usd": round(pnl_usd, 2),
+                "profit_pct": round(pnl_percent, 2),
+                "buy_time": lvl.last_trade_time or time.strftime("%H:%M:%S"),
+                "sell_time": time.strftime("%H:%M:%S"),
+                "date": time.strftime("%Y-%m-%d"),
+                "mode": "DEMO",
+                "type": "TAKE_PROFIT"
+            }
+            self.trade_history.insert(0, trade_rec)
+            if len(self.trade_history) > 500:
+                self.trade_history = self.trade_history[:500]
 
             lvl.is_holding = False
             lvl.bought_qty = 0.0
@@ -551,18 +652,41 @@ class ZoneGridEngine:
                         pre_placed_filled = True
                         received_quote = float(order_status.get("cummulativeQuoteQty", 0.0))
                     elif order_status and order_status.get("status") in ("NEW", "PARTIALLY_FILLED"):
-                        # Cancel limit order so we can execute immediate clean market sell
                         binance_service.cancel_order(self.symbol, lvl.sell_order_id)
                 except Exception:
                     pass
 
             if not pre_placed_filled:
-                # Execute Market Sell for exact holding quantity
                 actual_free = binance_service.get_asset_free_balance(self.symbol.replace("USDT", ""))
                 sell_qty = min(qty_to_sell, actual_free) if actual_free > 0 else qty_to_sell
 
                 sell_order = binance_service.place_market_sell(self.symbol, quantity=sell_qty)
                 received_quote = float(sell_order.get("cummulativeQuoteQty", 0.0))
+
+            actual_profit_usd = received_quote - lvl.total_cost
+            actual_profit_pct = (actual_profit_usd / lvl.total_cost) * 100.0 if lvl.total_cost > 0 else 0.0
+
+            # Record in Trade History
+            trade_rec = {
+                "id": f"TRD-{int(time.time() * 1000)}",
+                "level": lvl_num,
+                "symbol": self.symbol,
+                "buy_price": round(lvl.buy_price, prec),
+                "sell_price": round(current_price, prec),
+                "qty": round(qty_to_sell, 6),
+                "cost": round(lvl.total_cost, 2),
+                "revenue": round(received_quote, 2),
+                "profit_usd": round(actual_profit_usd, 2),
+                "profit_pct": round(actual_profit_pct, 2),
+                "buy_time": lvl.last_trade_time or time.strftime("%H:%M:%S"),
+                "sell_time": time.strftime("%H:%M:%S"),
+                "date": time.strftime("%Y-%m-%d"),
+                "mode": "REAL",
+                "type": "TAKE_PROFIT"
+            }
+            self.trade_history.insert(0, trade_rec)
+            if len(self.trade_history) > 500:
+                self.trade_history = self.trade_history[:500]
 
             # Mark level as UNLOCKED / FREE
             lvl.is_holding = False
@@ -576,7 +700,7 @@ class ZoneGridEngine:
 
             await broadcaster.broadcast(
                 "SUCCESS",
-                f"🎉 [Level {lvl_num:02d} UNLOCKED 🔓] Profit Locked! Received ${received_quote:,.2f} USDT (+{pnl_percent:.2f}%). Level is now FREE for new cycles."
+                f"🎉 [Level {lvl_num:02d} UNLOCKED 🔓] Profit Locked! Received ${received_quote:,.2f} USDT (+{actual_profit_pct:.2f}%). Level is now FREE for new cycles."
             )
 
             # Sync balance to UI
@@ -599,6 +723,8 @@ class ZoneGridEngine:
         holding_levels = [lvl for lvl in self.levels if lvl.is_holding and lvl.bought_qty > 0]
         if not holding_levels:
             return
+
+        prec = get_precision(current_price)
 
         # OPTION A: TOTAL PORTFOLIO STOP LOSS
         if self.stop_loss_type == "TOTAL":
@@ -629,6 +755,27 @@ class ZoneGridEngine:
                         "WARNING",
                         f"⚠️ [Level {lvl.index:02d} STOP LOSS] Price dropped {drop_pct:.2f}% below entry. Closing Level {lvl.index:02d} position (-${loss_usd:.2f}) and unlocking level."
                     )
+                    trade_rec = {
+                        "id": f"TRD-{int(time.time() * 1000)}-{lvl.index}",
+                        "level": lvl.index,
+                        "symbol": self.symbol,
+                        "buy_price": round(lvl.buy_price, prec),
+                        "sell_price": round(current_price, prec),
+                        "qty": round(lvl.bought_qty, 6),
+                        "cost": round(lvl.total_cost, 2),
+                        "revenue": round(lvl.bought_qty * current_price, 2),
+                        "profit_usd": round(-loss_usd, 2),
+                        "profit_pct": round(-drop_pct, 2),
+                        "buy_time": lvl.last_trade_time or time.strftime("%H:%M:%S"),
+                        "sell_time": time.strftime("%H:%M:%S"),
+                        "date": time.strftime("%Y-%m-%d"),
+                        "mode": "DEMO" if self.demo_mode else "REAL",
+                        "type": "STOP_LOSS"
+                    }
+                    self.trade_history.insert(0, trade_rec)
+                    if len(self.trade_history) > 500:
+                        self.trade_history = self.trade_history[:500]
+
                     if self.demo_mode:
                         revenue = lvl.bought_qty * current_price
                         self.demo_balance += revenue
@@ -658,26 +805,43 @@ class ZoneGridEngine:
         current_val = sum(lvl.bought_qty * self.last_price for lvl in self.levels if lvl.is_holding) if self.last_price > 0 else total_invested
         unrealized_pnl = current_val - total_invested
 
+        prec = get_precision(self.last_price if self.last_price > 0 else self.base_price)
+
+        total_realized_profit = round(sum(t.get("profit_usd", 0.0) for t in self.trade_history), 2)
+        win_count = sum(1 for t in self.trade_history if t.get("profit_usd", 0.0) > 0)
+        win_rate = round((win_count / len(self.trade_history)) * 100.0, 1) if self.trade_history else 100.0
+
         return {
             "symbol": self.symbol,
             "total_capital": self.total_capital,
+            "zones_above": self.zones_above,
+            "zones_below": self.zones_below,
             "num_zones": self.num_zones,
             "per_zone_capital": self.per_zone_capital,
+            "max_active_trades": self.max_active_trades,
             "zone_step_percent": self.zone_step_percent,
-            "base_price": self.base_price,
+            "base_price": round(self.base_price, prec),
+            "base_level_index": self.zones_below + 1,
             "stop_loss_type": self.stop_loss_type,
             "stop_loss_percent": self.stop_loss_percent,
             "open_range": self.open_range,
             "demo_mode": self.demo_mode,
             "demo_balance": round(self.demo_balance, 2),
             "is_running": self.is_running,
-            "last_price": self.last_price,
+            "last_price": round(self.last_price, prec),
             "active_trades_count": holding_count,
             "total_invested": round(total_invested, 2),
             "unrealized_pnl": round(unrealized_pnl, 2),
+            "total_realized_profit": total_realized_profit,
+            "completed_trades_count": len(self.trade_history),
+            "win_rate": win_rate,
+            "trade_history": self.trade_history[:100],
             "levels": [
                 {
                     **lvl.to_dict(),
+                    "price": round(lvl.price, prec),
+                    "target_price": round(lvl.target_price, prec),
+                    "buy_price": round(lvl.buy_price, prec) if lvl.buy_price > 0 else 0.0,
                     "current_pnl": round((self.last_price - lvl.buy_price) * lvl.bought_qty, 2) if (lvl.is_holding and self.last_price > 0) else 0.0,
                     "current_pnl_pct": round(((self.last_price - lvl.buy_price) / lvl.buy_price) * 100.0, 2) if (lvl.is_holding and lvl.buy_price > 0 and self.last_price > 0) else 0.0
                 }

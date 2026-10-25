@@ -572,35 +572,56 @@ if (sellCondition)
                             </div>
                             <div class="card-body">
                                 
-                                <!-- Trading Pair & Quick Selector -->
+                                <!-- Trading Pair & All Binance Coins Selector -->
                                 <div class="form-group">
                                     <div class="flex-between mb-5">
-                                        <label for="zgSymbol" data-i18n="zone_symbol_label">Trading Symbol (Pair)</label>
-                                        <div class="quick-pair-buttons">
-                                            <button class="pair-pill active" onclick="setZgPair('BTCUSDT', this)">BTC</button>
-                                            <button class="pair-pill" onclick="setZgPair('ETHUSDT', this)">ETH</button>
-                                            <button class="pair-pill" onclick="setZgPair('SOLUSDT', this)">SOL</button>
-                                            <button class="pair-pill" onclick="setZgPair('BNBUSDT', this)">BNB</button>
+                                        <label for="zgSymbol" data-i18n="zone_symbol_label">Trading Symbol (All Binance Coins)</label>
+                                        <div class="quick-pair-buttons" id="zgQuickPairs">
+                                            <button type="button" class="pair-pill active" onclick="setZgPair('BTCUSDT', this)">BTC</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('ETHUSDT', this)">ETH</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('SOLUSDT', this)">SOL</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('BNBUSDT', this)">BNB</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('DOGEUSDT', this)">DOGE</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('PEPEUSDT', this)">PEPE</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('XRPUSDT', this)">XRP</button>
+                                            <button type="button" class="pair-pill" onclick="setZgPair('NEARUSDT', this)">NEAR</button>
                                         </div>
                                     </div>
                                     <div class="input-with-button">
-                                        <input type="text" id="zgSymbol" value="BTCUSDT" class="input-field ltr" placeholder="e.g. BTCUSDT">
+                                        <input type="text" id="zgSymbol" value="BTCUSDT" list="binanceSymbolsList" class="input-field ltr font-bold" placeholder="Type or select any Binance coin (e.g. PEPEUSDT)..." onchange="fetchLiveZgPrice()">
+                                        <datalist id="binanceSymbolsList">
+                                            <!-- Dynamically populated with all 700+ Binance Spot USDT pairs -->
+                                        </datalist>
                                         <button class="btn btn-outline btn-sm" onclick="fetchLiveZgPrice()" title="Fetch current market price">
                                             <i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="btn_fetch_price">Fetch Price</span>
                                         </button>
                                     </div>
+                                    <small class="text-muted d-block mt-4" data-i18n="zone_all_coins_hint">Supports all 700+ Binance Spot pairs with precision up to 5 decimals.</small>
                                 </div>
 
                                 <div class="grid-two-fields">
                                     <!-- Total Capital -->
                                     <div class="form-group">
                                         <label for="zgTotalCapital" data-i18n="zone_total_capital_label">Total Capital ($ USDT)</label>
-                                        <input type="number" id="zgTotalCapital" value="200" min="10" step="10" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                        <input type="number" id="zgTotalCapital" value="200" min="10" step="10" class="input-field ltr font-bold" oninput="updateZgCalcPreview()">
                                     </div>
-                                    <!-- Number of Zones -->
+                                    <!-- Capital Per Trade / Zone -->
                                     <div class="form-group">
-                                        <label for="zgNumZones" data-i18n="zone_num_zones_label">Number of Levels / Zones</label>
-                                        <input type="number" id="zgNumZones" value="10" min="2" max="50" step="1" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                        <label for="zgPerZoneCapital" data-i18n="zone_per_zone_label">Capital per Trade ($)</label>
+                                        <input type="number" id="zgPerZoneCapital" value="20" min="5" step="5" class="input-field ltr font-bold" oninput="updateZgCalcPreview()">
+                                    </div>
+                                </div>
+
+                                <div class="grid-two-fields">
+                                    <!-- Zones Above -->
+                                    <div class="form-group">
+                                        <label for="zgZonesAbove" data-i18n="zone_above_label">Zones Above Price (أعلى خط البداية)</label>
+                                        <input type="number" id="zgZonesAbove" value="100" min="5" max="300" step="5" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                    </div>
+                                    <!-- Zones Below -->
+                                    <div class="form-group">
+                                        <label for="zgZonesBelow" data-i18n="zone_below_label">Zones Below Price (أدنى خط البداية)</label>
+                                        <input type="number" id="zgZonesBelow" value="100" min="5" max="300" step="5" class="input-field ltr" oninput="updateZgCalcPreview()">
                                     </div>
                                 </div>
 
@@ -608,24 +629,24 @@ if (sellCondition)
                                     <!-- Step Distance % -->
                                     <div class="form-group">
                                         <label for="zgStepPercent" data-i18n="zone_step_label">Distance Between Levels (%)</label>
-                                        <input type="number" id="zgStepPercent" value="1.0" min="0.1" max="20" step="0.1" class="input-field ltr" oninput="updateZgCalcPreview()">
+                                        <input type="number" id="zgStepPercent" value="1.0" min="0.05" max="20" step="0.05" class="input-field ltr" oninput="updateZgCalcPreview()">
                                     </div>
-                                    <!-- Base Starting Price -->
+                                    <!-- Base Starting Price (5 decimals) -->
                                     <div class="form-group">
-                                        <label for="zgBasePrice" data-i18n="zone_base_price_label">Base Starting Price ($)</label>
-                                        <input type="number" id="zgBasePrice" value="0" step="any" class="input-field ltr" placeholder="0 = Auto live price">
+                                        <label for="zgBasePrice" data-i18n="zone_base_price_label">Base Starting Price ($ - 5 Decimals)</label>
+                                        <input type="number" id="zgBasePrice" value="0" step="0.00001" class="input-field ltr font-mono" placeholder="0 = Auto live market price">
                                     </div>
                                 </div>
 
                                 <!-- Dynamic Preview Pill -->
                                 <div class="calc-preview-card mb-15">
                                     <div class="calc-row">
-                                        <span class="calc-label" data-i18n="zone_calc_per_zone">Capital per Level:</span>
-                                        <span class="calc-val text-emerald" id="zgCalcPerLevel">$20.00 / Level</span>
+                                        <span class="calc-label" data-i18n="zone_calc_total_zones">Total Grid Mesh:</span>
+                                        <span class="calc-val text-cyan" id="zgCalcTotalZones">200 Zones (~100 Above, ~100 Below)</span>
                                     </div>
                                     <div class="calc-row">
-                                        <span class="calc-label" data-i18n="zone_calc_max_orders">Max Concurrent Orders:</span>
-                                        <span class="calc-val text-cyan" id="zgCalcMaxOrders">10 Orders Max</span>
+                                        <span class="calc-label" data-i18n="zone_calc_max_orders">Max Active Trades:</span>
+                                        <span class="calc-val text-emerald" id="zgCalcMaxOrders">10 Orders Max ($20 / Trade)</span>
                                     </div>
                                 </div>
 
@@ -737,7 +758,7 @@ if (sellCondition)
                         <div class="card-header flex-between">
                             <h2>
                                 <i class="fa-solid fa-list-check text-cyan"></i> 
-                                <span data-i18n="zone_levels_table_title">Live Independent Levels Monitor (حالة المستويات العشرة المباشرة)</span>
+                                <span data-i18n="zone_levels_table_title">Live Independent Levels Monitor (حالة مستويات الزونات المباشرة)</span>
                             </h2>
                             <div class="table-actions-group">
                                 <span id="zgEngineStatusBadge" class="status-badge badge-offline">
@@ -750,12 +771,22 @@ if (sellCondition)
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="table-scroll">
+                            <!-- Levels Filter Bar -->
+                            <div class="levels-filter-bar mb-12">
+                                <span class="filter-label"><i class="fa-solid fa-filter text-cyan"></i> <span data-i18n="filter_label">Display Filter:</span></span>
+                                <button type="button" class="filter-pill active" onclick="setZgLevelFilter('all', this)"><span data-i18n="filter_all">All Levels</span> (<span id="countFilterAll">0</span>)</button>
+                                <button type="button" class="filter-pill" onclick="setZgLevelFilter('active', this)"><span data-i18n="filter_active">Active Holding Only</span> (<span id="countFilterActive">0</span>)</button>
+                                <button type="button" class="filter-pill" onclick="setZgLevelFilter('near', this)"><span data-i18n="filter_near">Near Market Price (±10%)</span> (<span id="countFilterNear">0</span>)</button>
+                                <button type="button" class="filter-pill" onclick="setZgLevelFilter('above', this)"><span data-i18n="filter_above">Above Base</span> (<span id="countFilterAbove">0</span>)</button>
+                                <button type="button" class="filter-pill" onclick="setZgLevelFilter('below', this)"><span data-i18n="filter_below">Below Base</span> (<span id="countFilterBelow">0</span>)</button>
+                            </div>
+
+                            <div class="table-scroll" style="max-height: 440px;">
                                 <table class="data-table">
                                     <thead>
                                         <tr>
                                             <th>Level / المستوى</th>
-                                            <th>Trigger Price / سعر الشراء</th>
+                                            <th>Trigger Price / سعر الشراء (5 Decimals)</th>
                                             <th>Target Sell (+1%) / الهدف</th>
                                             <th>Capital / المبلغ</th>
                                             <th>Status / الحالة</th>
@@ -769,6 +800,74 @@ if (sellCondition)
                                         <tr>
                                             <td colspan="9" class="text-center text-muted" data-i18n="zone_no_levels">
                                                 Click "Calculate & Preview Levels" or "Start Shark Zone Bot" to initialize grid levels.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ==================== TRADE HISTORY / سجل الصفقات المنفذة (الهيستوريك) ==================== -->
+                    <div class="card mt-20">
+                        <div class="card-header flex-between">
+                            <h2>
+                                <i class="fa-solid fa-clock-rotate-left text-emerald"></i>
+                                <span data-i18n="zone_history_title">Trade Execution History (سجل صفقات الزونات المنفذة)</span>
+                            </h2>
+                            <div class="table-actions-group">
+                                <span class="badge-pill bg-emerald-dim text-emerald" id="zgHistTotalBadge">0 Trades</span>
+                                <button class="btn btn-xs btn-outline" onclick="clearZgHistory()">
+                                    <i class="fa-solid fa-trash-can"></i> <span data-i18n="btn_clear_history">Clear History</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- History Summary Metrics -->
+                            <div class="stats-bar mb-15">
+                                <div class="stat-card">
+                                    <div class="stat-icon bg-emerald-dim"><i class="fa-solid fa-trophy text-emerald"></i></div>
+                                    <div class="stat-content">
+                                        <span class="stat-label" data-i18n="hist_stat_profit">Total Realized Profit</span>
+                                        <span class="stat-value text-emerald font-mono" id="zgHistTotalProfit">+$0.00 USDT</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon bg-blue-dim"><i class="fa-solid fa-chart-line text-blue"></i></div>
+                                    <div class="stat-content">
+                                        <span class="stat-label" data-i18n="hist_stat_winrate">Win Rate</span>
+                                        <span class="stat-value text-cyan font-mono" id="zgHistWinRate">100.0%</span>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon bg-purple-dim"><i class="fa-solid fa-check-double text-purple"></i></div>
+                                    <div class="stat-content">
+                                        <span class="stat-label" data-i18n="hist_stat_completed">Completed Cycles</span>
+                                        <span class="stat-value text-purple font-mono" id="zgHistCompletedCount">0 Trades</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- History Data Table -->
+                            <div class="table-scroll" style="max-height: 380px;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Trade ID / المعرف</th>
+                                            <th>Level / المستوى</th>
+                                            <th>Mode / الوضع</th>
+                                            <th>Type / العملية</th>
+                                            <th>Buy Price / الدخول</th>
+                                            <th>Sell Price / الخروج</th>
+                                            <th>Invested / التكلفة</th>
+                                            <th>Realized Profit / الربح المحقق</th>
+                                            <th>Exit Time / وقت البيع</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zgHistoryTableBody">
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted" data-i18n="hist_no_trades">
+                                                No closed trades yet. Closed zone positions will automatically appear here with exact profits and timestamps.
                                             </td>
                                         </tr>
                                     </tbody>

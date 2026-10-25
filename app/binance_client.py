@@ -307,4 +307,54 @@ class BinanceSpotService:
         except Exception:
             return []
 
+    def get_all_usdt_symbols(self) -> List[str]:
+        """
+        Fetch all active Binance Spot USDT symbols (700+ pairs) with in-memory caching.
+        """
+        import time
+        now = time.time()
+        if hasattr(self, "_cached_symbols") and self._cached_symbols and (now - getattr(self, "_cached_symbols_time", 0)) < 1800:
+            return self._cached_symbols
+
+        symbols = []
+        priority = [
+            "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "PEPEUSDT",
+            "SHIBUSDT", "ADAUSDT", "AVAXUSDT", "LINKUSDT", "SUIUSDT", "NEARUSDT", "FETUSDT",
+            "LTCUSDT", "DOTUSDT", "APTUSDT", "RENDERUSDT", "WIFUSDT", "FLOKIUSDT",
+            "BONKUSDT", "TAOUSDT", "INJUSDT", "ARBUSDT", "OPUSDT", "TIAUSDT", "SEIUSDT"
+        ]
+
+        # 1. Try via official client if connected
+        if self.client:
+            try:
+                tickers = self.client.get_all_tickers()
+                for t in tickers:
+                    s = t.get("symbol", "")
+                    if s.endswith("USDT") and not any(s.endswith(x) for x in ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")):
+                        symbols.append(s)
+            except Exception:
+                pass
+
+        # 2. Try via public REST endpoint
+        if not symbols:
+            try:
+                import requests
+                r = requests.get("https://api.binance.com/api/v3/ticker/price", timeout=6)
+                if r.status_code == 200:
+                    for t in r.json():
+                        s = t.get("symbol", "")
+                        if s.endswith("USDT") and not any(s.endswith(x) for x in ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")):
+                            symbols.append(s)
+            except Exception:
+                pass
+
+        if not symbols:
+            symbols = list(priority)
+
+        symbols = sorted(list(set(symbols)))
+        sorted_symbols = [s for s in priority if s in symbols] + [s for s in symbols if s not in priority]
+        self._cached_symbols = sorted_symbols
+        self._cached_symbols_time = now
+        return sorted_symbols
+
 binance_service = BinanceSpotService()

@@ -11,10 +11,22 @@ from app.zone_grid_engine import zone_grid_engine
 
 router = APIRouter()
 
+def get_precision(price: float) -> int:
+    if price <= 0:
+        return 5
+    if price < 0.0001:
+        return 8
+    elif price < 0.01:
+        return 6
+    return 5
+
 class ZoneGridConfigRequest(BaseModel):
     symbol: str = "BTCUSDT"
     total_capital: float = 200.0
-    num_zones: int = 10
+    num_zones: Optional[int] = 200
+    zones_above: int = 100
+    zones_below: int = 100
+    per_zone_capital: Optional[float] = 20.0
     zone_step_percent: float = 1.0
     base_price: Optional[float] = None
     stop_loss_type: str = "TOTAL"
@@ -158,6 +170,11 @@ async def test_signal(req: TestSignalRequest):
 # SHARK INDEPENDENT ZONE GRID API ENDPOINTS
 # ==============================================================================
 
+@router.get("/binance-symbols")
+async def get_binance_symbols():
+    symbols = binance_service.get_all_usdt_symbols()
+    return {"symbols": symbols, "count": len(symbols)}
+
 @router.get("/zone-grid/status")
 async def get_zone_grid_status():
     return zone_grid_engine.get_full_status()
@@ -166,56 +183,57 @@ async def get_zone_grid_status():
 async def configure_zone_grid(req: ZoneGridConfigRequest):
     base_p = req.base_price
     if base_p is None or base_p <= 0:
-        if binance_service.is_connected():
-            try:
-                base_p = binance_service.get_ticker_price(req.symbol)
-            except Exception:
-                base_p = 100.0
-        else:
+        try:
+            base_p = binance_service.get_ticker_price(req.symbol)
+        except Exception:
             base_p = 100.0
 
     zone_grid_engine.configure(
         symbol=req.symbol,
         total_capital=req.total_capital,
-        num_zones=req.num_zones,
+        num_zones=req.zones_above + req.zones_below,
         zone_step_percent=req.zone_step_percent,
         base_price=base_p,
         stop_loss_type=req.stop_loss_type,
         stop_loss_percent=req.stop_loss_percent,
         open_range=req.open_range,
-        demo_mode=req.demo_mode
+        demo_mode=req.demo_mode,
+        zones_above=req.zones_above,
+        zones_below=req.zones_below,
+        per_zone_capital=req.per_zone_capital
     )
     mode_text = "تجريبي (ديمو 10,000$)" if req.demo_mode else "حقيقي (Live Binance)"
     range_text = "مفتوح (Infinity)" if req.open_range else "مغلق (ثابت)"
-    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث إعدادات شبكة الزونات لزوج {req.symbol} ({req.num_zones} مستويات بمبلغ ${zone_grid_engine.per_zone_capital:.2f} لكل مستوى | الوضع: {mode_text} | النطاق: {range_text}).")
+    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث شبكة الزونات لزوج {req.symbol} ({zone_grid_engine.num_zones} مستويات [~{zone_grid_engine.zones_below} أدنى و ~{zone_grid_engine.zones_above} أعلى] بمخصص ${zone_grid_engine.per_zone_capital:.2f}/صفقة | الوضع: {mode_text} | النطاق: {range_text}).")
     return zone_grid_engine.get_full_status()
 
 @router.post("/zone-grid/preview")
 async def preview_zone_grid(req: ZoneGridConfigRequest):
     base_p = req.base_price
     if base_p is None or base_p <= 0:
-        if binance_service.is_connected():
-            try:
-                base_p = binance_service.get_ticker_price(req.symbol)
-            except Exception:
-                base_p = 100.0
-        else:
-            try:
-                base_p = binance_service.get_ticker_price(req.symbol)
-            except Exception:
-                base_p = 100.0
+        try:
+            base_p = binance_service.get_ticker_price(req.symbol)
+        except Exception:
+            base_p = 100.0
 
-    # Calculate preview levels without modifying active running bot
+    prec = get_precision(base_p)
+    base_p = round(base_p, prec)
     step_factor = 1.0 + (req.zone_step_percent / 100.0)
+    
+    zones_below = max(5, min(300, req.zones_below))
+    zones_above = max(5, min(300, req.zones_above))
+    total_zones = zones_below + zones_above
+    per_zone = req.per_zone_capital if (req.per_zone_capital and req.per_zone_capital > 0) else round(max(5.0, min(req.total_capital, req.total_capital / 10.0)), 2)
+
+    lowest_p = base_p / (step_factor ** zones_below)
     levels = []
-    cur_p = base_p
-    per_zone = round(req.total_capital / req.num_zones, 2)
-    for i in range(1, req.num_zones + 1):
+    cur_p = lowest_p
+    for i in range(1, total_zones + 1):
         next_p = cur_p * step_factor
         levels.append({
             "index": i,
-            "price": round(cur_p, 4),
-            "target_price": round(next_p, 4),
+            "price": round(cur_p, prec),
+            "target_price": round(next_p, prec),
             "capital": per_zone,
             "is_holding": False
         })
@@ -223,15 +241,23 @@ async def preview_zone_grid(req: ZoneGridConfigRequest):
 
     return {
         "symbol": req.symbol.upper(),
-        "base_price": round(base_p, 4),
+        "base_price": round(base_p, prec),
         "total_capital": req.total_capital,
-        "num_zones": req.num_zones,
+        "zones_above": zones_above,
+        "zones_below": zones_below,
+        "num_zones": total_zones,
         "per_zone_capital": per_zone,
         "zone_step_percent": req.zone_step_percent,
         "open_range": req.open_range,
         "demo_mode": req.demo_mode,
+        "base_level_index": zones_below + 1,
         "levels": levels
     }
+
+@router.post("/zone-grid/history/clear")
+async def clear_zone_grid_history():
+    zone_grid_engine.clear_history()
+    return {"status": "success", "message": "History cleared", "grid": zone_grid_engine.get_full_status()}
 
 @router.post("/zone-grid/demo-reset")
 async def reset_demo_balance():

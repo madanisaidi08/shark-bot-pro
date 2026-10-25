@@ -91,24 +91,108 @@ class BinanceSpotService:
         precision = int(round(-math.log10(tick))) if tick < 1 else 0
         return round(value, precision)
 
+    def _refresh_price_cache(self) -> bool:
+        """
+        Refresh global price cache of all Binance tickers using persistent session and multiple fallback endpoints.
+        """
+        import time, requests
+        if not hasattr(self, "_http_session") or self._http_session is None:
+            self._http_session = requests.Session()
+            self._http_session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            })
+
+        endpoints = [
+            "https://api.binance.com/api/v3/ticker/price",
+            "https://api1.binance.com/api/v3/ticker/price",
+            "https://api3.binance.com/api/v3/ticker/price",
+            "https://data-api.binance.vision/api/v3/ticker/price",
+            "https://testnet.binance.vision/api/v3/ticker/price"
+        ]
+
+        for ep in endpoints:
+            try:
+                r = self._http_session.get(ep, timeout=6)
+                if r.status_code == 200:
+                    data = r.json()
+                    cache = {}
+                    for item in data:
+                        sym = item.get("symbol")
+                        p = item.get("price")
+                        if sym and p:
+                            try:
+                                cache[sym] = float(p)
+                            except ValueError:
+                                pass
+                    if cache:
+                        self._price_cache = cache
+                        self._last_price_cache_time = time.time()
+                        return True
+            except Exception:
+                continue
+        return False
+
     def get_ticker_price(self, symbol: str) -> float:
-        symbol = symbol.upper()
+        import time
+        clean_symbol = symbol.upper().replace("/", "").replace("-", "").replace(" ", "").strip()
+        if not clean_symbol.endswith("USDT") and not any(clean_symbol.endswith(q) for q in ("BTC", "ETH", "BNB", "FDUSD", "EUR", "TRY", "BUSD")):
+            clean_symbol = f"{clean_symbol}USDT"
+
+        # 1. Try official client if connected
         if self.client:
             try:
-                ticker = self.client.get_symbol_ticker(symbol=symbol)
+                ticker = self.client.get_symbol_ticker(symbol=clean_symbol)
                 return float(ticker["price"])
             except Exception:
                 pass
-        
-        # Public Fallback (enables real-time price feed for Demo Mode with 0 API keys)
-        import requests
-        try:
-            res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}", timeout=6)
-            if res.status_code == 200:
-                return float(res.json()["price"])
-        except Exception:
-            pass
-        raise Exception(f"تعذر جلب سعر الزوج {symbol}. تأكد من الاتصال بالإنترنت أو صحة اسم الزوج.")
+
+        # 2. Check in-memory price cache (valid for 5 seconds)
+        now = time.time()
+        cache = getattr(self, "_price_cache", {})
+        cache_time = getattr(self, "_last_price_cache_time", 0)
+        if cache and clean_symbol in cache and (now - cache_time) < 5:
+            return cache[clean_symbol]
+
+        # 3. Try direct symbol query with persistent session and multiple endpoints
+        if not hasattr(self, "_http_session") or self._http_session is None:
+            import requests
+            self._http_session = requests.Session()
+            self._http_session.headers.update({
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            })
+
+        direct_endpoints = [
+            f"https://api.binance.com/api/v3/ticker/price?symbol={clean_symbol}",
+            f"https://api1.binance.com/api/v3/ticker/price?symbol={clean_symbol}",
+            f"https://api3.binance.com/api/v3/ticker/price?symbol={clean_symbol}",
+            f"https://data-api.binance.vision/api/v3/ticker/price?symbol={clean_symbol}",
+            f"https://testnet.binance.vision/api/v3/ticker/price?symbol={clean_symbol}"
+        ]
+        for url in direct_endpoints:
+            try:
+                res = self._http_session.get(url, timeout=5)
+                if res.status_code == 200:
+                    val = float(res.json()["price"])
+                    if not hasattr(self, "_price_cache"):
+                        self._price_cache = {}
+                    self._price_cache[clean_symbol] = val
+                    self._last_price_cache_time = now
+                    return val
+            except Exception:
+                continue
+
+        # 4. Fallback: Refresh full market cache and look up
+        if self._refresh_price_cache():
+            if clean_symbol in self._price_cache:
+                return self._price_cache[clean_symbol]
+
+        # 5. Last-ditch: If cache has old price, return it rather than failing
+        if cache and clean_symbol in cache:
+            return cache[clean_symbol]
+
+        raise Exception(f"تعذر جلب سعر الزوج {clean_symbol}. تأكد من الاتصال بالإنترنت أو صحة اسم الزوج.")
 
     def get_balances(self) -> Dict[str, Any]:
         if not self.client:
@@ -337,16 +421,25 @@ class BinanceSpotService:
 
         # 2. Try via public REST endpoint
         if not symbols:
-            try:
-                import requests
-                r = requests.get("https://api.binance.com/api/v3/ticker/price", timeout=6)
-                if r.status_code == 200:
-                    for t in r.json():
-                        s = t.get("symbol", "")
-                        if s.endswith("USDT") and not any(s.endswith(x) for x in ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")):
-                            symbols.append(s)
-            except Exception:
-                pass
+            for all_url in [
+                "https://api.binance.com/api/v3/ticker/price",
+                "https://api1.binance.com/api/v3/ticker/price",
+                "https://api3.binance.com/api/v3/ticker/price",
+                "https://data-api.binance.vision/api/v3/ticker/price"
+            ]:
+                try:
+                    import requests
+                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                    r = requests.get(all_url, headers=headers, timeout=6)
+                    if r.status_code == 200:
+                        for t in r.json():
+                            s = t.get("symbol", "")
+                            if s.endswith("USDT") and not any(s.endswith(x) for x in ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")):
+                                symbols.append(s)
+                        if symbols:
+                            break
+                except Exception:
+                    pass
 
         if not symbols:
             symbols = list(priority)

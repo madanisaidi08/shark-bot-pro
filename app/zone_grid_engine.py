@@ -272,8 +272,15 @@ class ZoneGridEngine:
         if not self.demo_mode and not binance_service.is_connected():
             raise Exception("Cannot start Real Bot: Binance is not connected. Add API keys first or switch to Demo Mode.")
 
-        cur_price = binance_service.get_ticker_price(self.symbol)
-        if not self.levels or len(self.levels) != self.num_zones:
+        try:
+            cur_price = binance_service.get_ticker_price(self.symbol)
+        except Exception as e:
+            if self.base_price > 0:
+                cur_price = self.base_price
+            else:
+                raise e
+
+        if not self.levels or len(self.levels) != self.num_zones or self.base_price <= 0:
             self.generate_levels(cur_price)
 
         self.is_running = True

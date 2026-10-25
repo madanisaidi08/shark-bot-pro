@@ -176,6 +176,19 @@ async def get_binance_symbols():
     symbols = binance_service.get_all_usdt_symbols()
     return {"symbols": symbols, "count": len(symbols)}
 
+@router.get("/price/{symbol}")
+async def get_price_for_symbol(symbol: str):
+    try:
+        p = binance_service.get_ticker_price(symbol)
+        prec = get_precision(p)
+        return {
+            "symbol": symbol.upper(),
+            "price": round(p, prec),
+            "formatted": f"{p:.{prec}f}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/zone-grid/status")
 async def get_zone_grid_status():
     return zone_grid_engine.get_full_status()

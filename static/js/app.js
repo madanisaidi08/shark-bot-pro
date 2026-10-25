@@ -1157,31 +1157,27 @@ async function resetDemoBalance() {
 }
 
 async function fetchLiveZgPrice() {
-    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    let symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    symbol = symbol.replace("/", "").replace("-", "").replace(" ", "").trim();
+    if (!symbol.endsWith("USDT") && symbol.length <= 6 && !["BTC", "ETH", "BNB"].includes(symbol)) {
+        symbol = symbol + "USDT";
+        const symInput = document.getElementById("zgSymbol");
+        if (symInput) symInput.value = symbol;
+    }
+
     try {
-        const previewRes = await fetch("/api/zone-grid/preview", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                symbol: symbol,
-                total_capital: parseFloat(document.getElementById("zgTotalCapital")?.value) || 200,
-                zones_above: parseInt(document.getElementById("zgZonesAbove")?.value) || 100,
-                zones_below: parseInt(document.getElementById("zgZonesBelow")?.value) || 100,
-                per_zone_capital: parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0,
-                zone_step_percent: parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0,
-                base_price: 0,
-                open_range: document.getElementById("zgOpenRange")?.checked ?? true,
-                demo_mode: isZgDemoMode
-            })
-        });
-        const data = await previewRes.json();
-        if (data.base_price) {
-            document.getElementById("zgBasePrice").value = formatPrice(data.base_price, 5);
-            currentZgLevels = data.levels || [];
-            renderZgLevels(currentZgLevels, false, data.base_level_index, data.base_price);
+        const priceRes = await fetch(`/api/price/${symbol}`);
+        if (priceRes.ok) {
+            const pData = await priceRes.json();
+            if (pData.price && pData.price > 0) {
+                const baseInput = document.getElementById("zgBasePrice");
+                if (baseInput) baseInput.value = formatPrice(pData.price, 5);
+            }
         }
+        await previewZoneGrid();
     } catch (e) {
         console.error("Error fetching live price:", e);
+        await previewZoneGrid();
     }
 }
 
@@ -1208,7 +1204,14 @@ function setZgLevelFilter(filter, btn) {
 }
 
 async function previewZoneGrid() {
-    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    let symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    symbol = symbol.replace("/", "").replace("-", "").replace(" ", "").trim();
+    if (!symbol.endsWith("USDT") && symbol.length <= 6 && !["BTC", "ETH", "BNB"].includes(symbol)) {
+        symbol = symbol + "USDT";
+        const symInput = document.getElementById("zgSymbol");
+        if (symInput) symInput.value = symbol;
+    }
+
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
     const splits = parseInt(document.getElementById("zgCapitalDivisions")?.value) || 10;
     const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || (totalCap / splits);
@@ -1553,7 +1556,14 @@ async function clearZgHistory() {
 }
 
 async function startZoneGrid() {
-    const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    let symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
+    symbol = symbol.replace("/", "").replace("-", "").replace(" ", "").trim();
+    if (!symbol.endsWith("USDT") && symbol.length <= 6 && !["BTC", "ETH", "BNB"].includes(symbol)) {
+        symbol = symbol + "USDT";
+        const symInput = document.getElementById("zgSymbol");
+        if (symInput) symInput.value = symbol;
+    }
+
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
     const splits = parseInt(document.getElementById("zgCapitalDivisions")?.value) || 10;
     const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || (totalCap / splits);

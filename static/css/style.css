@@ -1710,3 +1710,47 @@ html[dir="rtl"] .badge-base-marker {
     font-size: 11px;
     font-weight: 700;
 }
+
+/* Grid Layouts for Inputs */
+.grid-two-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.grid-three-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+}
+
+@media (max-width: 768px) {
+    .grid-two-fields,
+    .grid-three-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Capital Rule Clarification Banner */
+.capital-clarification-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.capital-clarification-banner i {
+    font-size: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.capital-clarification-banner .banner-text {
+    flex: 1;
+}

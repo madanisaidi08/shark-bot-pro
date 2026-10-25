@@ -173,10 +173,13 @@ const translations = {
         demo_reset_success: "Demo wallet reset to $10,000.00 USDT successfully!",
         demo_mode_changed: "Trading mode switched to: ",
         zone_all_coins_hint: "Supports all 700+ Binance Spot pairs with precision up to 5 decimals.",
-        zone_above_label: "Zones Above Price (~100 Upward)",
-        zone_below_label: "Zones Below Price (~100 Downward)",
+        zone_splits_label: "Capital Splits (Max Concurrent Trades)",
+        zone_banner_title: "Strict Capital Allocation Rule:",
+        zone_banner_desc: "Total capital ($200) is split into 10 trades ($20 each). The 200 price levels (100 above, 100 below) are chart price trigger levels — capital is NEVER divided by 200. Max 10 active positions concurrently.",
+        zone_above_label: "Price Levels Above Starting Price",
+        zone_below_label: "Price Levels Below Starting Price",
         zone_per_zone_label: "Capital per Active Trade ($)",
-        zone_calc_total_zones: "Total Grid Mesh:",
+        zone_calc_total_zones: "Total Chart Price Mesh:",
         filter_label: "Display Filter:",
         filter_all: "All Levels",
         filter_active: "Active Positions Only",
@@ -358,10 +361,13 @@ const translations = {
         demo_reset_success: "تم إعادة تعيين رصيد الحساب التجريبي إلى 10,000.00$ USDT بنجاح!",
         demo_mode_changed: "تم تغيير وضع التداول إلى: ",
         zone_all_coins_hint: "يدعم جميع أزواج بينانس الفورية (+700 زوج) مع دقة سعرية تصل إلى 5 أرقام بعد الفاصلة.",
+        zone_splits_label: "أجزاء رأس المال (عدد الصفقات القصوى)",
+        zone_banner_title: "قاعدة توزيع رأس المال الصارمة:",
+        zone_banner_desc: "رأس المال ($200) يُقسم على 10 صفقات فقط (20$ لكل صفقة). شبكة الـ 200 مستوى (100 فوق و 100 تحت) هي مجرد خطوط رصد لحركة السعر على الشارت، ولا يُقسم رأس المال على 200 أبداً. أقصى عدد صفقات مفتوحة بالتزامن هو 10 صفقات.",
         zone_above_label: "المستويات للأعلى (~100 خط صاعد)",
         zone_below_label: "المستويات للأسفل (~100 خط هابط)",
         zone_per_zone_label: "مخصص الصفقة الواحدة ($)",
-        zone_calc_total_zones: "إجمالي شبكة الزونات:",
+        zone_calc_total_zones: "إجمالي شبكة أسعار الشارت:",
         filter_label: "تصفية العرض:",
         filter_all: "كافة المستويات",
         filter_active: "الصفقات المفتوحة فقط",
@@ -1077,18 +1083,42 @@ function toggleBlueprintModal() {
     box.style.display = (box.style.display === "none" || !box.style.display) ? "block" : "none";
 }
 
+function onZgCapitalChange(source) {
+    const totalEl = document.getElementById("zgTotalCapital");
+    const splitsEl = document.getElementById("zgCapitalDivisions");
+    const perZoneEl = document.getElementById("zgPerZoneCapital");
+    if (!totalEl || !splitsEl || !perZoneEl) return;
+
+    let total = parseFloat(totalEl.value) || 200.0;
+    let splits = parseInt(splitsEl.value) || 10;
+    let perZone = parseFloat(perZoneEl.value) || 20.0;
+
+    if (source === 'total' || source === 'splits') {
+        splits = Math.max(1, splits);
+        perZone = parseFloat((total / splits).toFixed(2));
+        perZoneEl.value = perZone;
+    } else if (source === 'per_zone') {
+        if (perZone > 0) {
+            splits = Math.max(1, Math.floor(total / perZone));
+            splitsEl.value = splits;
+        }
+    }
+    updateZgCalcPreview();
+}
+
 function updateZgCalcPreview() {
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const splits = parseInt(document.getElementById("zgCapitalDivisions")?.value) || 10;
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || (totalCap / splits);
     const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
     const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
     const totalZones = zonesAbove + zonesBelow;
-    const maxOrders = Math.max(1, Math.floor(totalCap / perZoneCap));
+    const maxOrders = splits;
 
     const calcTotalZonesEl = document.getElementById("zgCalcTotalZones");
     const calcMaxOrdersEl = document.getElementById("zgCalcMaxOrders");
 
-    if (calcTotalZonesEl) calcTotalZonesEl.textContent = `${totalZones} Zones (~${zonesBelow} Below, ~${zonesAbove} Above)`;
+    if (calcTotalZonesEl) calcTotalZonesEl.textContent = `${totalZones} Price Levels (~${zonesBelow} Below, ~${zonesAbove} Above)`;
     if (calcMaxOrdersEl) calcMaxOrdersEl.textContent = `${maxOrders} Orders Max ($${perZoneCap.toFixed(2)} / Trade)`;
 }
 
@@ -1180,7 +1210,8 @@ function setZgLevelFilter(filter, btn) {
 async function previewZoneGrid() {
     const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const splits = parseInt(document.getElementById("zgCapitalDivisions")?.value) || 10;
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || (totalCap / splits);
     const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
     const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
     const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
@@ -1194,6 +1225,7 @@ async function previewZoneGrid() {
             body: JSON.stringify({
                 symbol: symbol,
                 total_capital: totalCap,
+                capital_divisions: splits,
                 zones_above: zonesAbove,
                 zones_below: zonesBelow,
                 per_zone_capital: perZoneCap,
@@ -1229,12 +1261,20 @@ async function fetchZgStatus() {
         const demoBalanceText = document.getElementById("zgDemoBalanceText");
 
         if (statTotal) statTotal.textContent = `$${data.total_capital.toFixed(2)}`;
-        if (statPerZone) statPerZone.textContent = `$${data.per_zone_capital.toFixed(2)} / Trade`;
+        if (statPerZone) {
+            const divs = data.capital_divisions || Math.round(data.total_capital / data.per_zone_capital) || 10;
+            statPerZone.textContent = `$${data.per_zone_capital.toFixed(2)} / Trade (${divs} Splits)`;
+        }
         if (statActive) statActive.textContent = `${data.active_trades_count} / ${data.max_active_trades || 10} Active`;
         if (statPnl) {
             const pnl = data.unrealized_pnl || 0.0;
             statPnl.textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
             statPnl.className = `stat-value ${pnl >= 0 ? 'text-emerald' : 'text-danger'}`;
+        }
+
+        const splitsInput = document.getElementById("zgCapitalDivisions");
+        if (splitsInput && data.capital_divisions && !splitsInput.matches(':focus')) {
+            splitsInput.value = data.capital_divisions;
         }
 
         // Demo vs Live Mode UI sync
@@ -1409,6 +1449,9 @@ function renderZgLevels(levels, isRunning, baseLevelIdx = 101, currentPrice = 0)
             : `<span class="text-muted">-</span>`;
 
         const capitalVal = lvl.capital || lvl.total_cost || 20.0;
+        const capText = isHolding 
+            ? `<span class="font-bold text-emerald font-mono">$${capitalVal.toFixed(2)} <small class="text-muted">(${currentLanguage === 'ar' ? 'مستثمر' : 'Invested'})</small></span>`
+            : `<span class="text-muted font-mono">$${capitalVal.toFixed(2)} <small class="text-muted">(${currentLanguage === 'ar' ? 'مخصص' : 'Allocated'})</small></span>`;
 
         html += `
             <tr class="${isHolding ? 'row-holding-active' : ''} ${isBase ? 'row-base-level' : ''}">
@@ -1418,7 +1461,7 @@ function renderZgLevels(levels, isRunning, baseLevelIdx = 101, currentPrice = 0)
                 </td>
                 <td class="font-mono font-bold">$${formatPrice(lvl.price, 5)}</td>
                 <td class="font-mono text-emerald font-bold">$${formatPrice(lvl.target_price, 5)} <small class="text-muted">(+1%)</small></td>
-                <td class="font-mono">$${capitalVal.toFixed(2)}</td>
+                <td>${capText}</td>
                 <td>${statusBadge}</td>
                 <td>${qtyHtml}</td>
                 <td>${entryHtml}</td>
@@ -1512,7 +1555,8 @@ async function clearZgHistory() {
 async function startZoneGrid() {
     const symbol = document.getElementById("zgSymbol")?.value.trim().toUpperCase() || "BTCUSDT";
     const totalCap = parseFloat(document.getElementById("zgTotalCapital")?.value) || 200.0;
-    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || 20.0;
+    const splits = parseInt(document.getElementById("zgCapitalDivisions")?.value) || 10;
+    const perZoneCap = parseFloat(document.getElementById("zgPerZoneCapital")?.value) || (totalCap / splits);
     const zonesAbove = parseInt(document.getElementById("zgZonesAbove")?.value) || 100;
     const zonesBelow = parseInt(document.getElementById("zgZonesBelow")?.value) || 100;
     const stepPct = parseFloat(document.getElementById("zgStepPercent")?.value) || 1.0;
@@ -1522,13 +1566,14 @@ async function startZoneGrid() {
     const openRange = document.getElementById("zgOpenRange")?.checked ?? true;
 
     try {
-        // 1. Configure with open range, demo mode, zones above & below, capital per trade
+        // 1. Configure with open range, demo mode, zones above & below, capital divisions & capital per trade
         await fetch("/api/zone-grid/configure", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 symbol: symbol,
                 total_capital: totalCap,
+                capital_divisions: splits,
                 zones_above: zonesAbove,
                 zones_below: zonesBelow,
                 per_zone_capital: perZoneCap,

@@ -599,28 +599,42 @@ if (sellCondition)
                                     <small class="text-muted d-block mt-4" data-i18n="zone_all_coins_hint">Supports all 700+ Binance Spot pairs with precision up to 5 decimals.</small>
                                 </div>
 
-                                <div class="grid-two-fields">
+                                <div class="grid-three-fields">
                                     <!-- Total Capital -->
                                     <div class="form-group">
                                         <label for="zgTotalCapital" data-i18n="zone_total_capital_label">Total Capital ($ USDT)</label>
-                                        <input type="number" id="zgTotalCapital" value="200" min="10" step="10" class="input-field ltr font-bold" oninput="updateZgCalcPreview()">
+                                        <input type="number" id="zgTotalCapital" value="200" min="10" step="10" class="input-field ltr font-bold" oninput="onZgCapitalChange('total')">
+                                    </div>
+                                    <!-- Capital Splits / Active Zones -->
+                                    <div class="form-group">
+                                        <label for="zgCapitalDivisions" data-i18n="zone_splits_label">Capital Splits (زونات رأس المال)</label>
+                                        <input type="number" id="zgCapitalDivisions" value="10" min="1" max="100" step="1" class="input-field ltr font-bold" oninput="onZgCapitalChange('splits')">
                                     </div>
                                     <!-- Capital Per Trade / Zone -->
                                     <div class="form-group">
                                         <label for="zgPerZoneCapital" data-i18n="zone_per_zone_label">Capital per Trade ($)</label>
-                                        <input type="number" id="zgPerZoneCapital" value="20" min="5" step="5" class="input-field ltr font-bold" oninput="updateZgCalcPreview()">
+                                        <input type="number" id="zgPerZoneCapital" value="20" min="5" step="1" class="input-field ltr font-bold" oninput="onZgCapitalChange('per_zone')">
+                                    </div>
+                                </div>
+
+                                <!-- Explicit Capital Rule Clarification Banner -->
+                                <div class="capital-clarification-banner">
+                                    <i class="fa-solid fa-shield-halved text-cyan"></i>
+                                    <div class="banner-text">
+                                        <strong data-i18n="zone_banner_title" class="text-cyan d-block">قاعدة توزيع رأس المال (Strict Allocation Rule):</strong>
+                                        <span data-i18n="zone_banner_desc" class="text-muted">رأس المال ($200) يُقسم على 10 صفقات فقط (20$ لكل صفقة). شبكة الـ 200 مستوى (100 فوق و 100 تحت) هي مجرد خطوط أسعار لرصد حركة السوق على الشارت، ولا يُقسم رأس المال على 200 أبداً. أقصى صفقات مفتوحة بالتزامن = 10 صفقات.</span>
                                     </div>
                                 </div>
 
                                 <div class="grid-two-fields">
                                     <!-- Zones Above -->
                                     <div class="form-group">
-                                        <label for="zgZonesAbove" data-i18n="zone_above_label">Zones Above Price (أعلى خط البداية)</label>
+                                        <label for="zgZonesAbove" data-i18n="zone_above_label">Price Levels Above (مستويات الشارت أعلى السعر)</label>
                                         <input type="number" id="zgZonesAbove" value="100" min="5" max="300" step="5" class="input-field ltr" oninput="updateZgCalcPreview()">
                                     </div>
                                     <!-- Zones Below -->
                                     <div class="form-group">
-                                        <label for="zgZonesBelow" data-i18n="zone_below_label">Zones Below Price (أدنى خط البداية)</label>
+                                        <label for="zgZonesBelow" data-i18n="zone_below_label">Price Levels Below (مستويات الشارت أدنى السعر)</label>
                                         <input type="number" id="zgZonesBelow" value="100" min="5" max="300" step="5" class="input-field ltr" oninput="updateZgCalcPreview()">
                                     </div>
                                 </div>

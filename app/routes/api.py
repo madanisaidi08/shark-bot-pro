@@ -23,6 +23,7 @@ def get_precision(price: float) -> int:
 class ZoneGridConfigRequest(BaseModel):
     symbol: str = "BTCUSDT"
     total_capital: float = 200.0
+    capital_divisions: Optional[int] = 10
     num_zones: Optional[int] = 200
     zones_above: int = 100
     zones_below: int = 100
@@ -188,9 +189,13 @@ async def configure_zone_grid(req: ZoneGridConfigRequest):
         except Exception:
             base_p = 100.0
 
+    capital_divisions = req.capital_divisions if (req.capital_divisions and req.capital_divisions > 0) else 10
+    per_zone = req.per_zone_capital if (req.per_zone_capital and req.per_zone_capital > 0) else round(max(5.0, req.total_capital / capital_divisions), 2)
+
     zone_grid_engine.configure(
         symbol=req.symbol,
         total_capital=req.total_capital,
+        capital_divisions=capital_divisions,
         num_zones=req.zones_above + req.zones_below,
         zone_step_percent=req.zone_step_percent,
         base_price=base_p,
@@ -200,11 +205,11 @@ async def configure_zone_grid(req: ZoneGridConfigRequest):
         demo_mode=req.demo_mode,
         zones_above=req.zones_above,
         zones_below=req.zones_below,
-        per_zone_capital=req.per_zone_capital
+        per_zone_capital=per_zone
     )
     mode_text = "تجريبي (ديمو 10,000$)" if req.demo_mode else "حقيقي (Live Binance)"
     range_text = "مفتوح (Infinity)" if req.open_range else "مغلق (ثابت)"
-    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث شبكة الزونات لزوج {req.symbol} ({zone_grid_engine.num_zones} مستويات [~{zone_grid_engine.zones_below} أدنى و ~{zone_grid_engine.zones_above} أعلى] بمخصص ${zone_grid_engine.per_zone_capital:.2f}/صفقة | الوضع: {mode_text} | النطاق: {range_text}).")
+    await broadcaster.broadcast("INFO", f"⚙️ تم تحديث شبكة الزونات لزوج {req.symbol} (رأس المال: ${zone_grid_engine.total_capital:.2f} مقسم على {zone_grid_engine.capital_divisions} صفقات = ${zone_grid_engine.per_zone_capital:.2f}/صفقة | شبكة الأسعار: {zone_grid_engine.num_zones} مستويات [~{zone_grid_engine.zones_below} أدنى و ~{zone_grid_engine.zones_above} أعلى] | الوضع: {mode_text} | النطاق: {range_text}).")
     return zone_grid_engine.get_full_status()
 
 @router.post("/zone-grid/preview")
@@ -223,7 +228,8 @@ async def preview_zone_grid(req: ZoneGridConfigRequest):
     zones_below = max(5, min(300, req.zones_below))
     zones_above = max(5, min(300, req.zones_above))
     total_zones = zones_below + zones_above
-    per_zone = req.per_zone_capital if (req.per_zone_capital and req.per_zone_capital > 0) else round(max(5.0, min(req.total_capital, req.total_capital / 10.0)), 2)
+    capital_divisions = req.capital_divisions if (req.capital_divisions and req.capital_divisions > 0) else 10
+    per_zone = req.per_zone_capital if (req.per_zone_capital and req.per_zone_capital > 0) else round(max(5.0, req.total_capital / capital_divisions), 2)
 
     lowest_p = base_p / (step_factor ** zones_below)
     levels = []
@@ -243,6 +249,8 @@ async def preview_zone_grid(req: ZoneGridConfigRequest):
         "symbol": req.symbol.upper(),
         "base_price": round(base_p, prec),
         "total_capital": req.total_capital,
+        "capital_divisions": capital_divisions,
+        "max_active_trades": max(1, int(req.total_capital / per_zone)),
         "zones_above": zones_above,
         "zones_below": zones_below,
         "num_zones": total_zones,

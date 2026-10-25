@@ -88,9 +88,10 @@ class ZoneGridEngine:
     def __init__(self):
         self.symbol: str = "BTCUSDT"
         self.total_capital: float = 200.0
+        self.capital_divisions: int = 10   # رأس المال مقسم إلى 10 أجزاء فقط (10 صفقات كحد أقصى)
         self.zones_above: int = 100
         self.zones_below: int = 100
-        self.num_zones: int = 200  # zones_above + zones_below
+        self.num_zones: int = 200  # zones_above + zones_below (مستويات الشارت)
         self.custom_per_zone_capital: Optional[float] = 20.0
         self.zone_step_percent: float = 1.0
         self.base_price: float = 0.0
@@ -109,14 +110,24 @@ class ZoneGridEngine:
 
     @property
     def per_zone_capital(self) -> float:
+        """
+        رأس مال الصفقة الواحدة:
+        يُقسم رأس المال على عدد أجزاء رأس المال (10 افتراضياً)،
+        ولا يُقسم أبداً على عدد مستويات الشارت (200)!
+        """
         if self.custom_per_zone_capital and self.custom_per_zone_capital > 0:
             return round(self.custom_per_zone_capital, 2)
-        return round(max(5.0, min(self.total_capital, self.total_capital / 10.0)), 2)
+        divs = self.capital_divisions if (self.capital_divisions and self.capital_divisions > 0) else 10
+        return round(max(5.0, self.total_capital / divs), 2)
 
     @property
     def max_active_trades(self) -> int:
+        """
+        أقصى عدد صفقات نشطة مفتوحة بالتزامن:
+        لا يمكن فتح أكثر من 10 صفقات (أو عدد الأجزاء المحددة).
+        """
         if self.per_zone_capital <= 0:
-            return 10
+            return self.capital_divisions if self.capital_divisions > 0 else 10
         return max(1, int(self.total_capital / self.per_zone_capital))
 
     def generate_levels(self, base_price: float):
@@ -162,10 +173,12 @@ class ZoneGridEngine:
         demo_mode: bool = False,
         zones_above: int = 100,
         zones_below: int = 100,
-        per_zone_capital: Optional[float] = 20.0
+        per_zone_capital: Optional[float] = 20.0,
+        capital_divisions: Optional[int] = 10
     ):
         self.symbol = symbol.upper().replace("/", "").replace(" ", "").replace("-", "")
         self.total_capital = max(10.0, float(total_capital))
+        self.capital_divisions = max(1, int(capital_divisions)) if capital_divisions else 10
         self.zones_above = max(5, min(300, int(zones_above)))
         self.zones_below = max(5, min(300, int(zones_below)))
         self.num_zones = self.zones_above + self.zones_below
@@ -177,7 +190,7 @@ class ZoneGridEngine:
         if per_zone_capital and float(per_zone_capital) > 0:
             self.custom_per_zone_capital = float(per_zone_capital)
         else:
-            self.custom_per_zone_capital = round(max(5.0, min(self.total_capital, self.total_capital / 10.0)), 2)
+            self.custom_per_zone_capital = round(max(5.0, self.total_capital / self.capital_divisions), 2)
 
         if base_price > 0:
             self.generate_levels(base_price)
@@ -206,6 +219,7 @@ class ZoneGridEngine:
             data = {
                 "symbol": self.symbol,
                 "total_capital": self.total_capital,
+                "capital_divisions": self.capital_divisions,
                 "zones_above": self.zones_above,
                 "zones_below": self.zones_below,
                 "num_zones": self.num_zones,
@@ -235,6 +249,7 @@ class ZoneGridEngine:
                 data = json.load(f)
             self.symbol = data.get("symbol", "BTCUSDT")
             self.total_capital = float(data.get("total_capital", 200.0))
+            self.capital_divisions = int(data.get("capital_divisions", 10))
             self.zones_above = int(data.get("zones_above", 100))
             self.zones_below = int(data.get("zones_below", 100))
             self.num_zones = int(data.get("num_zones", self.zones_above + self.zones_below))
@@ -814,6 +829,7 @@ class ZoneGridEngine:
         return {
             "symbol": self.symbol,
             "total_capital": self.total_capital,
+            "capital_divisions": self.capital_divisions,
             "zones_above": self.zones_above,
             "zones_below": self.zones_below,
             "num_zones": self.num_zones,
